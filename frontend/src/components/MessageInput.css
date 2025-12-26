@@ -1,0 +1,122 @@
+.message-input-container {
+  background: white;
+  border-top: 1px solid #e0e0e0;
+  padding: 15px 20px;
+}
+
+.image-preview {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.image-preview img {
+  max-width: 200px;
+  max-height: 200px;
+  display: block;
+  object-fit: cover;
+}
+
+.remove-image {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.remove-image:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.message-input-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.file-input {
+  display: none;
+}
+
+.image-button {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 20px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.image-button:hover {
+  background: #e8e8e8;
+  transform: scale(1.05);
+}
+
+.message-textarea {
+  flex: 1;
+  padding: 12px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: none;
+  max-height: 120px;
+  transition: border-color 0.2s;
+  background: #ffffff;
+}
+
+.message-textarea:focus {
+  outline: none;
+  border-color: #9b59b6;
+  background: white;
+}
+
+.message-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.send-button {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.send-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(155, 89, 182, 0.3);
+}
+
+.send-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+

@@ -1,0 +1,213 @@
+.message-item {
+  display: flex;
+  margin-bottom: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-item.user {
+  justify-content: flex-end;
+}
+
+.message-item.assistant {
+  justify-content: flex-start;
+}
+
+.message-content {
+  max-width: 70%;
+  display: flex;
+  flex-direction: column;
+}
+
+.message-item.user .message-content {
+  align-items: flex-end;
+}
+
+.message-item.assistant .message-content {
+  align-items: flex-start;
+}
+
+.message-image {
+  margin-bottom: 8px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.message-image img {
+  max-width: 300px;
+  max-height: 300px;
+  display: block;
+  object-fit: cover;
+}
+
+.message-text {
+  padding: 12px 18px;
+  border-radius: 18px;
+  word-wrap: break-word;
+  line-height: 1.6;
+}
+
+/* Markdown 样式 */
+.message-text .markdown-p {
+  margin: 0.5em 0;
+  line-height: 1.6;
+}
+
+.message-text .markdown-p:first-child {
+  margin-top: 0;
+}
+
+.message-text .markdown-p:last-child {
+  margin-bottom: 0;
+}
+
+.message-text .markdown-h1,
+.message-text .markdown-h2,
+.message-text .markdown-h3 {
+  margin: 1em 0 0.5em 0;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.message-text .markdown-h1 {
+  font-size: 1.3em;
+  border-bottom: 2px solid rgba(155, 89, 182, 0.2);
+  padding-bottom: 0.3em;
+}
+
+.message-text .markdown-h2 {
+  font-size: 1.2em;
+}
+
+.message-text .markdown-h3 {
+  font-size: 1.1em;
+}
+
+.message-text .markdown-ul,
+.message-text .markdown-ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.message-text .markdown-li {
+  margin: 0.3em 0;
+  line-height: 1.6;
+}
+
+.message-text .markdown-code-inline {
+  background: rgba(155, 89, 182, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9em;
+}
+
+.message-item.assistant .message-text .markdown-code-inline {
+  background: rgba(155, 89, 182, 0.15);
+  color: #8e44ad;
+}
+
+.message-item.user .message-text .markdown-code-inline {
+  background: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.message-text .markdown-code-block {
+  display: block;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 0.8em 0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9em;
+  line-height: 1.5;
+}
+
+.message-item.assistant .message-text .markdown-code-block {
+  background: rgba(155, 89, 182, 0.08);
+  border-left: 3px solid #9b59b6;
+}
+
+.message-item.user .message-text .markdown-code-block {
+  background: rgba(255, 255, 255, 0.15);
+  border-left: 3px solid rgba(255, 255, 255, 0.5);
+}
+
+.message-text .markdown-blockquote {
+  margin: 0.8em 0;
+  padding: 0.5em 1em;
+  border-left: 3px solid rgba(155, 89, 182, 0.4);
+  background: rgba(155, 89, 182, 0.05);
+  border-radius: 4px;
+  font-style: italic;
+}
+
+.message-item.user .message-text .markdown-blockquote {
+  border-left-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.message-text .markdown-strong {
+  font-weight: 600;
+  color: inherit;
+}
+
+.message-text .markdown-em {
+  font-style: italic;
+}
+
+/* 链接样式 */
+.message-text a {
+  color: #9b59b6;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(155, 89, 182, 0.3);
+  transition: all 0.2s;
+}
+
+.message-text a:hover {
+  color: #8e44ad;
+  border-bottom-color: #8e44ad;
+}
+
+.message-item.user .message-text a {
+  color: rgba(255, 255, 255, 0.9);
+  border-bottom-color: rgba(255, 255, 255, 0.5);
+}
+
+.message-item.user .message-text a:hover {
+  color: white;
+  border-bottom-color: white;
+}
+
+.message-item.user .message-text {
+  background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.message-item.assistant .message-text {
+  background: white;
+  color: #333;
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 2px 8px rgba(155, 89, 182, 0.1);
+}
+
+.message-time {
+  font-size: 11px;
+  color: #999;
+  margin-top: 4px;
+  padding: 0 4px;
+}
+
