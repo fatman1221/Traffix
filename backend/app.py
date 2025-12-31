@@ -19,7 +19,11 @@ from model_providers import create_provider, ModelProvider
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-load_dotenv()
+# 加载环境变量（优先加载 .env，如果不存在则加载 env）
+env_file = Path(__file__).parent / ".env"
+if not env_file.exists():
+    env_file = Path(__file__).parent / "env"
+load_dotenv(env_file)
 
 # 数据库配置
 DATABASE_URL = os.getenv(
@@ -32,11 +36,13 @@ MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "aliyun").lower()  # aliyun, ollama
 MODEL_NAME = os.getenv("MODEL_NAME", "qwen-vl-plus")  # 模型名称
 
 # 初始化模型提供者
+model_provider = None
 try:
     model_provider = create_provider()
     logger.info(f"模型提供者已初始化: {MODEL_PROVIDER}, 模型: {MODEL_NAME}")
 except Exception as e:
     logger.error(f"模型提供者初始化失败: {e}")
+    logger.error(f"请检查环境变量配置，确保已设置正确的 MODEL_PROVIDER 和相应的 API Key")
     model_provider = None
 
 # 创建上传目录
@@ -147,7 +153,17 @@ def call_model(user_content: str, image_path: Optional[str] = None, history: lis
     """调用大模型（支持多种提供者）"""
     try:
         if not model_provider:
-            raise Exception("模型提供者未初始化")
+            error_msg = (
+                f"模型提供者未初始化。\n"
+                f"当前配置: MODEL_PROVIDER={MODEL_PROVIDER}, MODEL_NAME={MODEL_NAME}\n"
+                f"请检查:\n"
+                f"1. 环境变量文件 (backend/env 或 backend/.env) 是否存在\n"
+                f"2. 如果使用阿里云，请确保 DASHSCOPE_API_KEY 已设置\n"
+                f"3. 如果使用 Ollama，请确保 Ollama 服务正在运行\n"
+                f"4. 查看后端日志了解详细错误信息"
+            )
+            logger.error(error_msg)
+            raise Exception(error_msg)
         
         messages = []
         

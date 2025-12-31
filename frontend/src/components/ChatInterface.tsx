@@ -101,12 +101,21 @@ const ChatInterface: React.FC = () => {
         created_at: response.created_at
       }
       setMessages(prev => [...prev, assistantMessage])
-    } catch (error) {
+    } catch (error: any) {
       console.error('发送消息失败:', error)
+      // 尝试从响应中获取详细错误信息
+      let errorContent = '抱歉，消息发送失败，请稍后重试。'
+      if (error?.response?.data?.detail) {
+        errorContent = `错误: ${error.response.data.detail}`
+      } else if (error?.response?.data?.message) {
+        errorContent = `错误: ${error.response.data.message}`
+      } else if (error?.message) {
+        errorContent = `错误: ${error.message}`
+      }
       const errorMessage: Message = {
         id: Date.now() + 1,
         session_id: sessionId!,
-        content: '抱歉，消息发送失败，请稍后重试。',
+        content: errorContent,
         image_url: null,
         role: 'assistant',
         created_at: new Date().toISOString()
