@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+"""
+基于多模态大模型的道路状况综合识别系统 - 后端API
+"""
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -19,7 +23,19 @@ from model_providers import create_provider, ModelProvider
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-load_dotenv()
+# 加载环境变量文件（明确指定 env 文件路径）
+BASE_DIR = Path(__file__).parent
+env_path = BASE_DIR / "env"
+load_dotenv(env_path, override=True)  # override=True 确保覆盖已有环境变量
+logger.info(f"加载环境变量文件: {env_path}")
+if env_path.exists():
+    logger.info(f"环境变量文件存在，文件大小: {env_path.stat().st_size} 字节")
+    # 验证关键环境变量
+    test_provider = os.getenv("MODEL_PROVIDER")
+    test_key = os.getenv("DASHSCOPE_API_KEY")
+    logger.info(f"MODEL_PROVIDER: {test_provider}, DASHSCOPE_API_KEY: {'已设置' if test_key else '未设置'}")
+else:
+    logger.warning(f"环境变量文件不存在: {env_path}")
 
 # 数据库配置
 DATABASE_URL = os.getenv(
@@ -33,14 +49,15 @@ MODEL_NAME = os.getenv("MODEL_NAME", "qwen-vl-plus")  # 模型名称
 
 # 初始化模型提供者
 try:
+    logger.info(f"开始初始化模型提供者，类型: {MODEL_PROVIDER}, 模型: {MODEL_NAME}")
     model_provider = create_provider()
-    logger.info(f"模型提供者已初始化: {MODEL_PROVIDER}, 模型: {MODEL_NAME}")
+    logger.info(f"✓ 模型提供者已成功初始化: {MODEL_PROVIDER}, 模型: {MODEL_NAME}")
 except Exception as e:
-    logger.error(f"模型提供者初始化失败: {e}")
+    logger.error(f"✗ 模型提供者初始化失败: {e}", exc_info=True)
     model_provider = None
+    logger.warning("模型提供者为 None，后续调用将失败")
 
-# 创建上传目录
-BASE_DIR = Path(__file__).parent
+# 创建上传目录（BASE_DIR 已在上面定义，这里不需要重复定义）
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 

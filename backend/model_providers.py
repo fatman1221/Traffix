@@ -12,7 +12,31 @@ import requests
 import dashscope
 from dashscope import Generation, MultiModalConversation
 
+# 禁用代理（避免代理连接问题）
+# 设置环境变量，让 requests 和 dashscope 不使用代理
+no_proxy_list = 'dashscope.aliyuncs.com,*.aliyuncs.com,localhost,127.0.0.1'
+os.environ.setdefault('NO_PROXY', no_proxy_list)
+os.environ.setdefault('no_proxy', no_proxy_list)
+
+# 临时清空代理环境变量（仅对当前进程有效）
+# 这会影响到所有使用这些环境变量的库，但可以确保 dashscope 不使用代理
+original_proxies = {}
+proxy_vars = ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy']
+for var in proxy_vars:
+    if var in os.environ:
+        original_proxies[var] = os.environ[var]
+        os.environ.pop(var, None)
+
+# 禁用 requests 的 SSL 警告
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 logger = logging.getLogger(__name__)
+
+# 如果有代理被移除，记录日志
+if original_proxies:
+    logger.warning(f"检测到系统代理设置，已临时移除: {original_proxies}")
+    logger.info("已设置 NO_PROXY，dashscope 将直接连接阿里云")
 
 # 模型提供者类型
 PROVIDER_ALIYUN = "aliyun"
@@ -35,15 +59,29 @@ class AliyunProvider(ModelProvider):
     def __init__(self, api_key: str):
         self.api_key = api_key
         dashscope.api_key = api_key
+        
+        # 确保 dashscope 不使用代理
+        # dashscope 底层使用 requests，通过环境变量 NO_PROXY 已设置
+        # 如果仍有问题，可以尝试在调用时指定代理为空
+        logger.info("DashScope 已初始化，将直接连接阿里云（已禁用代理）")
     
     def call_model(self, messages: List[Dict], model: str, image_path: Optional[str] = None) -> str:
         """调用阿里云模型"""
         use_multimodal = model.startswith('qwen-vl') or image_path is not None
         
-        if use_multimodal:
-            response = MultiModalConversation.call(model=model, messages=messages)
-        else:
-            response = Generation.call(model=model, messages=messages)
+        try:
+            if use_multimodal:
+                response = MultiModalConversation.call(model=model, messages=messages)
+            else:
+                response = Generation.call(model=model, messages=messages)
+        except Exception as e:
+            error_msg = str(e)
+            if 'proxy' in error_msg.lower() or 'ProxyError' in error_msg or 'SSLError' in error_msg:
+                logger.error(f"代理/SSL 连接错误: {e}")
+                logger.error("提示: 系统可能设置了代理，但代理配置有问题。")
+                logger.error("解决方案: 1) 检查系统代理设置 2) 临时禁用代理 3) 配置正确的代理")
+                raise Exception(f"连接阿里云 API 时出现代理错误。请检查系统代理设置。原始错误: {e}")
+            raise
         
         if response.status_code != 200:
             raise Exception(f"模型调用失败: {response.message}")
