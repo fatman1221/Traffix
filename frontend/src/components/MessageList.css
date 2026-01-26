@@ -73,3 +73,18 @@
   }
 }
 
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .message-list {
+    padding: 15px;
+  }
+
+  .empty-icon {
+    font-size: 48px;
+  }
+
+  .empty-state p {
+    font-size: 16px;
+  }
+}
+

@@ -120,3 +120,30 @@
   cursor: not-allowed;
 }
 
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .message-input-container {
+    padding: 12px 15px;
+  }
+
+  .message-input-form {
+    gap: 8px;
+  }
+
+  .image-button {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+  }
+
+  .message-textarea {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+
+  .send-button {
+    padding: 10px 20px;
+    font-size: 13px;
+  }
+}
+

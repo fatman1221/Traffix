@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey, Enum as SQLEnum, DECIMAL, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship
 from datetime import datetime
@@ -9,11 +9,17 @@ import os
 from dotenv import load_dotenv
 import aiofiles
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 import base64
 import logging
 import json
+import uuid
 from model_providers import create_provider, ModelProvider
+from auth import (
+    get_password_hash, verify_password, create_access_token,
+    get_current_user, get_current_public_user, get_current_admin_user
+)
+from event_recognition import recognize_event_with_model, auto_review_report
 
 # 配置日志（需要在其他配置之前）
 logging.basicConfig(level=logging.INFO)
@@ -77,6 +83,117 @@ class Message(Base):
     role = Column(String(20), nullable=False)  # 'user' or 'assistant'
     created_at = Column(DateTime, default=datetime.utcnow)
     session = relationship("ChatSession", back_populates="messages")
+
+
+# 新增数据模型
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(50), unique=True, nullable=False, index=True)
+    phone = Column(String(20), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
+    role = Column(SQLEnum('public', 'admin', name='user_role'), nullable=False, default='public', index=True)
+    real_name = Column(String(50), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    reports = relationship("Report", back_populates="user", cascade="all, delete-orphan")
+
+
+class Report(Base):
+    __tablename__ = "reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    event_type = Column(String(100), nullable=True)
+    location = Column(String(255), nullable=True)
+    description = Column(Text, nullable=True)
+    description_text = Column(Text, nullable=True)
+    contact_phone = Column(String(20), nullable=True)
+    status = Column(SQLEnum('pending', 'auto_approved', 'auto_rejected', 'manual_review', 'approved', 'rejected', 'closed', name='report_status'), 
+                    nullable=False, default='pending', index=True)
+    auto_review_result = Column(String(50), nullable=True)
+    auto_review_confidence = Column(DECIMAL(5, 2), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    user = relationship("User", back_populates="reports")
+    images = relationship("ReportImage", back_populates="report", cascade="all, delete-orphan")
+    ticket = relationship("Ticket", back_populates="report", uselist=False, cascade="all, delete-orphan")
+    recognition_results = relationship("ModelRecognitionResult", back_populates="report", cascade="all, delete-orphan")
+    review_records = relationship("ReviewRecord", back_populates="report", cascade="all, delete-orphan")
+
+
+class ReportImage(Base):
+    __tablename__ = "report_images"
+
+    id = Column(Integer, primary_key=True, index=True)
+    report_id = Column(Integer, ForeignKey("reports.id"), nullable=False, index=True)
+    image_url = Column(String(500), nullable=False)
+    image_order = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    report = relationship("Report", back_populates="images")
+
+
+class Ticket(Base):
+    __tablename__ = "tickets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    report_id = Column(Integer, ForeignKey("reports.id"), nullable=False, unique=True, index=True)
+    ticket_no = Column(String(50), unique=True, nullable=False, index=True)
+    event_type = Column(String(100), nullable=True)
+    location = Column(String(255), nullable=True)
+    description = Column(Text, nullable=True)
+    status = Column(SQLEnum('pending', 'assigned', 'processing', 'resolved', 'closed', name='ticket_status'),
+                    nullable=False, default='pending', index=True)
+    assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
+    priority = Column(SQLEnum('low', 'medium', 'high', 'urgent', name='ticket_priority'),
+                      nullable=False, default='medium')
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    report = relationship("Report", back_populates="ticket")
+    records = relationship("TicketRecord", back_populates="ticket", cascade="all, delete-orphan")
+
+
+class ModelRecognitionResult(Base):
+    __tablename__ = "model_recognition_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    report_id = Column(Integer, ForeignKey("reports.id"), nullable=False, index=True)
+    image_url = Column(String(500), nullable=False)
+    question = Column(Text, nullable=True)
+    answer = Column(Text, nullable=True)
+    event_type_detected = Column(String(100), nullable=True)
+    confidence = Column(DECIMAL(5, 2), nullable=True)
+    structured_data = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    report = relationship("Report", back_populates="recognition_results")
+
+
+class ReviewRecord(Base):
+    __tablename__ = "review_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    report_id = Column(Integer, ForeignKey("reports.id"), nullable=False, index=True)
+    reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    review_type = Column(SQLEnum('auto', 'manual', name='review_type'), nullable=False)
+    review_result = Column(SQLEnum('approved', 'rejected', 'need_review', name='review_result'), nullable=False)
+    review_comment = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    report = relationship("Report", back_populates="review_records")
+
+
+class TicketRecord(Base):
+    __tablename__ = "ticket_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=False, index=True)
+    operator_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    action = Column(String(50), nullable=False)
+    old_status = Column(String(50), nullable=True)
+    new_status = Column(String(50), nullable=True)
+    comment = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    ticket = relationship("Ticket", back_populates="records")
 
 
 # 创建表
@@ -387,6 +504,532 @@ async def send_message(
         "image_url": None,
         "role": assistant_message.role,
         "created_at": assistant_message.created_at.isoformat()
+    }
+
+
+# ==================== 新增API：用户认证 ====================
+
+@app.post("/api/auth/register")
+async def register(
+    username: str = Form(...),
+    phone: str = Form(...),
+    password: str = Form(...),
+    real_name: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
+):
+    """用户注册（公众用户）"""
+    # 检查用户名和手机号是否已存在
+    if db.query(User).filter(User.username == username).first():
+        raise HTTPException(status_code=400, detail="用户名已存在")
+    if db.query(User).filter(User.phone == phone).first():
+        raise HTTPException(status_code=400, detail="手机号已注册")
+    
+    # 创建用户
+    user = User(
+        username=username,
+        phone=phone,
+        password_hash=get_password_hash(password),
+        role='public',
+        real_name=real_name
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    
+    # 生成token（sub必须是字符串）
+    access_token = create_access_token(data={"sub": str(user.id), "role": user.role})
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "phone": user.phone,
+            "role": user.role
+        }
+    }
+
+
+@app.post("/api/auth/login")
+async def login(
+    username: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """用户登录（支持公众用户和管理员）"""
+    user = db.query(User).filter(User.username == username).first()
+    if not user or not verify_password(password, user.password_hash):
+        raise HTTPException(status_code=401, detail="用户名或密码错误")
+    
+    # 生成token（sub必须是字符串）
+    access_token = create_access_token(data={"sub": str(user.id), "role": user.role})
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "phone": user.phone,
+            "role": user.role
+        }
+    }
+
+
+@app.get("/api/auth/me")
+async def get_current_user_info(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取当前用户信息"""
+    user = db.query(User).filter(User.id == current_user["user_id"]).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    
+    return {
+        "id": user.id,
+        "username": user.username,
+        "phone": user.phone,
+        "role": user.role,
+        "real_name": user.real_name
+    }
+
+
+# ==================== 新增API：事件上报 ====================
+
+@app.post("/api/reports")
+async def create_report(
+    event_type: Optional[str] = Form(None),
+    location: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    contact_phone: Optional[str] = Form(None),
+    images: List[UploadFile] = File(...),
+    current_user: dict = Depends(get_current_public_user),
+    db: Session = Depends(get_db)
+):
+    """创建事件举报"""
+    if not images:
+        raise HTTPException(status_code=400, detail="至少需要上传一张图片")
+    
+    # 保存图片
+    image_urls = []
+    for idx, image in enumerate(images):
+        file_path = UPLOAD_DIR / f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}_{image.filename}"
+        async with aiofiles.open(file_path, 'wb') as f:
+            content_data = await image.read()
+            await f.write(content_data)
+        image_urls.append(str(file_path.relative_to(BASE_DIR)))
+    
+    # 获取用户信息
+    user = db.query(User).filter(User.id == current_user["user_id"]).first()
+    
+    # 创建举报记录
+    report = Report(
+        user_id=current_user["user_id"],
+        event_type=event_type,
+        location=location,
+        description=description,
+        description_text=description,
+        contact_phone=contact_phone or user.phone,
+        status='pending'
+    )
+    db.add(report)
+    db.flush()
+    
+    # 保存图片记录
+    for idx, image_url in enumerate(image_urls):
+        report_image = ReportImage(
+            report_id=report.id,
+            image_url=image_url,
+            image_order=idx
+        )
+        db.add(report_image)
+    
+    # 使用第一张图片进行模型识别
+    first_image_path = BASE_DIR / image_urls[0]
+    if first_image_path.exists():
+        try:
+            # 读取图片并转换为base64
+            with open(first_image_path, 'rb') as f:
+                image_data = base64.b64encode(f.read()).decode('utf-8')
+            ext = first_image_path.suffix.lower()
+            mime_type = {
+                '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+                '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp'
+            }.get(ext, 'image/jpeg')
+            image_base64 = f"data:{mime_type};base64,{image_data}"
+            
+            # 调用模型识别
+            if model_provider:
+                question = "图中公路上有没有抛洒物？如果有，请描述位置和类型。如果没有，请描述图中是否有其他交通异常情况。"
+                recognition_result = recognize_event_with_model(
+                    model_provider=model_provider,
+                    image_path=image_base64,
+                    question=question,
+                    model_name=MODEL_NAME
+                )
+                
+                # 保存识别结果
+                model_result = ModelRecognitionResult(
+                    report_id=report.id,
+                    image_url=image_urls[0],
+                    question=question,
+                    answer=recognition_result.get("answer", ""),
+                    event_type_detected=recognition_result.get("event_type"),
+                    confidence=float(recognition_result.get("confidence", 0.0)),
+                    structured_data=recognition_result.get("structured_data", {})
+                )
+                db.add(model_result)
+                
+                # 智能初审
+                user_selected_types = [event_type] if event_type else []
+                review_result, review_comment, confidence = auto_review_report(
+                    user_selected_types=user_selected_types,
+                    model_result=recognition_result
+                )
+                
+                # 更新举报状态
+                if review_result == "approved":
+                    report.status = "auto_approved"
+                elif review_result == "rejected":
+                    report.status = "auto_rejected"
+                else:
+                    report.status = "manual_review"
+                
+                report.auto_review_result = review_result
+                report.auto_review_confidence = float(confidence)
+                
+                # 保存审核记录
+                review_record = ReviewRecord(
+                    report_id=report.id,
+                    reviewer_id=current_user["user_id"],  # 系统自动审核
+                    review_type="auto",
+                    review_result=review_result,
+                    review_comment=review_comment
+                )
+                db.add(review_record)
+                
+                # 如果自动通过，创建工单
+                if review_result == "approved":
+                    ticket_no = f"T{datetime.now().strftime('%Y%m%d%H%M%S')}{report.id:06d}"
+                    ticket = Ticket(
+                        report_id=report.id,
+                        ticket_no=ticket_no,
+                        event_type=recognition_result.get("event_type") or event_type,
+                        location=location or recognition_result.get("structured_data", {}).get("location"),
+                        description=description or recognition_result.get("answer", ""),
+                        status="pending",
+                        priority="medium"
+                    )
+                    db.add(ticket)
+        except Exception as e:
+            logger.error(f"模型识别失败: {str(e)}", exc_info=True)
+            # 识别失败不影响举报创建，但需要人工复核
+            report.status = "manual_review"
+    
+    db.commit()
+    db.refresh(report)
+    
+    return {
+        "id": report.id,
+        "status": report.status,
+        "auto_review_result": report.auto_review_result,
+        "auto_review_confidence": float(report.auto_review_confidence) if report.auto_review_confidence else None,
+        "created_at": report.created_at.isoformat()
+    }
+
+
+@app.get("/api/reports/my")
+async def get_my_reports(
+    current_user: dict = Depends(get_current_public_user),
+    db: Session = Depends(get_db)
+):
+    """获取我的举报记录"""
+    reports = db.query(Report).filter(
+        Report.user_id == current_user["user_id"]
+    ).order_by(Report.created_at.desc()).all()
+    
+    result = []
+    for report in reports:
+        images = [img.image_url for img in report.images]
+        result.append({
+            "id": report.id,
+            "event_type": report.event_type,
+            "location": report.location,
+            "description": report.description,
+            "status": report.status,
+            "auto_review_result": report.auto_review_result,
+            "images": images,
+            "created_at": report.created_at.isoformat()
+        })
+    
+    return result
+
+
+# ==================== 新增API：模型识别服务 ====================
+
+@app.post("/api/recognize")
+async def recognize_image(
+    image: UploadFile = File(...),
+    question: Optional[str] = Form(None),
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """图片事件识别接口（问答形式）"""
+    # 保存图片
+    file_path = UPLOAD_DIR / f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}_{image.filename}"
+    async with aiofiles.open(file_path, 'wb') as f:
+        content_data = await image.read()
+        await f.write(content_data)
+    
+    # 读取图片并转换为base64
+    with open(file_path, 'rb') as f:
+        image_data = base64.b64encode(f.read()).decode('utf-8')
+    ext = file_path.suffix.lower()
+    mime_type = {
+        '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+        '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp'
+    }.get(ext, 'image/jpeg')
+    image_base64 = f"data:{mime_type};base64,{image_data}"
+    
+    if not model_provider:
+        raise HTTPException(status_code=503, detail="模型服务未初始化")
+    
+    # 如果没有指定问题，使用默认问题
+    if not question:
+        question = "图中公路上有没有抛洒物？如果有，请描述位置和类型。如果没有，请描述图中是否有其他交通异常情况。"
+    
+    # 调用模型识别
+    try:
+        recognition_result = recognize_event_with_model(
+            model_provider=model_provider,
+            image_path=image_base64,
+            question=question,
+            model_name=MODEL_NAME
+        )
+        
+        return {
+            "success": recognition_result.get("success", False),
+            "question": question,
+            "answer": recognition_result.get("answer", ""),
+            "structured_data": recognition_result.get("structured_data", {}),
+            "event_type": recognition_result.get("event_type"),
+            "confidence": float(recognition_result.get("confidence", 0.0)),
+            "image_url": f"/uploads/{file_path.name}"
+        }
+    except Exception as e:
+        logger.error(f"识别失败: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"识别失败: {str(e)}")
+
+
+# ==================== 新增API：工单管理（管理端） ====================
+
+@app.get("/api/admin/tickets")
+async def get_tickets(
+    status: Optional[str] = None,
+    current_user: dict = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """获取工单列表（管理端）"""
+    query = db.query(Ticket)
+    if status:
+        query = query.filter(Ticket.status == status)
+    
+    tickets = query.order_by(Ticket.created_at.desc()).all()
+    
+    result = []
+    for ticket in tickets:
+        report = ticket.report
+        images = [img.image_url for img in report.images] if report else []
+        result.append({
+            "id": ticket.id,
+            "ticket_no": ticket.ticket_no,
+            "report_id": ticket.report_id,
+            "event_type": ticket.event_type,
+            "location": ticket.location,
+            "description": ticket.description,
+            "status": ticket.status,
+            "priority": ticket.priority,
+            "assigned_to": ticket.assigned_to,
+            "images": images,
+            "created_at": ticket.created_at.isoformat(),
+            "updated_at": ticket.updated_at.isoformat()
+        })
+    
+    return result
+
+
+@app.get("/api/admin/tickets/{ticket_id}")
+async def get_ticket_detail(
+    ticket_id: int,
+    current_user: dict = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """获取工单详情（管理端）"""
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="工单不存在")
+    
+    report = ticket.report
+    images = [img.image_url for img in report.images] if report else []
+    recognition_results = [
+        {
+            "id": r.id,
+            "image_url": r.image_url,
+            "question": r.question,
+            "answer": r.answer,
+            "event_type_detected": r.event_type_detected,
+            "confidence": float(r.confidence) if r.confidence else None
+        }
+        for r in report.recognition_results
+    ] if report else []
+    
+    review_records = [
+        {
+            "id": r.id,
+            "review_type": r.review_type,
+            "review_result": r.review_result,
+            "review_comment": r.review_comment,
+            "created_at": r.created_at.isoformat()
+        }
+        for r in report.review_records
+    ] if report else []
+    
+    return {
+        "id": ticket.id,
+        "ticket_no": ticket.ticket_no,
+        "report_id": ticket.report_id,
+        "event_type": ticket.event_type,
+        "location": ticket.location,
+        "description": ticket.description,
+        "status": ticket.status,
+        "priority": ticket.priority,
+        "assigned_to": ticket.assigned_to,
+        "images": images,
+        "recognition_results": recognition_results,
+        "review_records": review_records,
+        "report": {
+            "id": report.id if report else None,
+            "user_id": report.user_id if report else None,
+            "event_type": report.event_type if report else None,
+            "location": report.location if report else None,
+            "description": report.description if report else None,
+            "status": report.status if report else None,
+            "auto_review_result": report.auto_review_result if report else None,
+            "auto_review_confidence": float(report.auto_review_confidence) if report and report.auto_review_confidence else None
+        } if report else None,
+        "created_at": ticket.created_at.isoformat(),
+        "updated_at": ticket.updated_at.isoformat()
+    }
+
+
+@app.post("/api/admin/reports/{report_id}/review")
+async def review_report(
+    report_id: int,
+    review_result: str = Form(...),
+    review_comment: Optional[str] = Form(None),
+    current_user: dict = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """人工复核举报（管理端）"""
+    if review_result not in ["approved", "rejected", "need_review"]:
+        raise HTTPException(status_code=400, detail="无效的审核结果")
+    
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="举报不存在")
+    
+    # 更新举报状态
+    if review_result == "approved":
+        report.status = "approved"
+        # 如果还没有工单，创建工单
+        if not report.ticket:
+            ticket_no = f"T{datetime.now().strftime('%Y%m%d%H%M%S')}{report.id:06d}"
+            ticket = Ticket(
+                report_id=report.id,
+                ticket_no=ticket_no,
+                event_type=report.event_type,
+                location=report.location,
+                description=report.description,
+                status="pending",
+                priority="medium"
+            )
+            db.add(ticket)
+    elif review_result == "rejected":
+        report.status = "rejected"
+    else:
+        report.status = "manual_review"
+    
+    # 保存审核记录
+    review_record = ReviewRecord(
+        report_id=report.id,
+        reviewer_id=current_user["user_id"],
+        review_type="manual",
+        review_result=review_result,
+        review_comment=review_comment
+    )
+    db.add(review_record)
+    
+    db.commit()
+    
+    return {"success": True, "message": "审核完成"}
+
+
+@app.post("/api/admin/tickets/{ticket_id}/update")
+async def update_ticket(
+    ticket_id: int,
+    status: Optional[str] = Form(None),
+    assigned_to: Optional[int] = Form(None),
+    priority: Optional[str] = Form(None),
+    comment: Optional[str] = Form(None),
+    current_user: dict = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """更新工单状态（管理端）"""
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="工单不存在")
+    
+    old_status = ticket.status
+    
+    # 更新状态
+    if status:
+        if status not in ["pending", "assigned", "processing", "resolved", "closed"]:
+            raise HTTPException(status_code=400, detail="无效的状态")
+        ticket.status = status
+    
+    if assigned_to:
+        ticket.assigned_to = assigned_to
+    
+    if priority:
+        if priority not in ["low", "medium", "high", "urgent"]:
+            raise HTTPException(status_code=400, detail="无效的优先级")
+        ticket.priority = priority
+    
+    # 保存处理记录
+    if status or assigned_to or priority or comment:
+        record = TicketRecord(
+            ticket_id=ticket.id,
+            operator_id=current_user["user_id"],
+            action="update",
+            old_status=old_status,
+            new_status=ticket.status,
+            comment=comment
+        )
+        db.add(record)
+    
+    db.commit()
+    db.refresh(ticket)
+    
+    return {
+        "success": True,
+        "ticket": {
+            "id": ticket.id,
+            "status": ticket.status,
+            "assigned_to": ticket.assigned_to,
+            "priority": ticket.priority
+        }
     }
 
 

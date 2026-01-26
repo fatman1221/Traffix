@@ -1,0 +1,104 @@
+.public-home-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f5f5f5;
+}
+
+.public-header {
+  background: white;
+  padding: 15px 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.public-header h1 {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.logout-btn {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.logout-btn:hover {
+  background: #f5f5f5;
+}
+
+.public-tabs {
+  display: flex;
+  background: white;
+  border-top: 1px solid #eee;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.public-tabs button {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  background: white;
+  cursor: pointer;
+  font-size: 14px;
+  color: #666;
+  border-bottom: 2px solid transparent;
+  transition: all 0.3s;
+}
+
+.public-tabs button.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+  background: #f8f9ff;
+}
+
+.public-content {
+  flex: 1;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 60px; /* 为底部标签栏留出空间 */
+}
+
+.chat-container,
+.report-container,
+.my-reports-wrapper {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.my-reports-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .public-header h1 {
+    font-size: 16px;
+  }
+
+  .public-tabs button {
+    padding: 12px 8px;
+    font-size: 12px;
+  }
+
+  .public-content {
+    padding-bottom: 60px;
+  }
+}
+
