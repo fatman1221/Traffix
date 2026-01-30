@@ -2,8 +2,13 @@ import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
 import PublicHome from './pages/PublicHome'
+import AdminHome from './pages/AdminHome'
+import AdminStatistics from './pages/AdminStatistics'
+import AdminReview from './pages/AdminReview'
 import AdminTickets from './pages/AdminTickets'
 import AdminTicketDetail from './pages/AdminTicketDetail'
+import AdminUsers from './pages/AdminUsers'
+import AdminDataManagement from './pages/AdminDataManagement'
 import ChatInterface from './components/ChatInterface'
 import './App.css'
 
@@ -43,21 +48,21 @@ function App() {
           } 
         />
         <Route 
-          path="/admin/tickets" 
+          path="/admin" 
           element={
             <ProtectedRoute requiredRole="admin">
-              <AdminTickets />
+              <AdminHome />
             </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/admin/tickets/:ticketId" 
-          element={
-            <ProtectedRoute requiredRole="admin">
-              <AdminTicketDetail />
-            </ProtectedRoute>
-          } 
-        />
+          }
+        >
+          <Route index element={<Navigate to="/admin/statistics" replace />} />
+          <Route path="statistics" element={<AdminStatistics />} />
+          <Route path="review" element={<AdminReview />} />
+          <Route path="tickets" element={<AdminTickets />} />
+          <Route path="tickets/:ticketId" element={<AdminTicketDetail />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="data" element={<AdminDataManagement />} />
+        </Route>
         <Route path="/chat" element={<ChatInterface />} />
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>

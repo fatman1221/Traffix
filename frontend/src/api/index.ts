@@ -171,9 +171,18 @@ export const recognizeImage = async (image: File, question?: string): Promise<Re
 
 // ==================== 新增API：工单管理（管理端） ====================
 
-export const getTickets = async (status?: string): Promise<Ticket[]> => {
-  const url = status ? `/admin/tickets?status=${status}` : '/admin/tickets'
-  const response = await api.get(url)
+export const getTickets = async (status?: string, page: number = 1, pageSize: number = 10): Promise<{
+  items: Ticket[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+}> => {
+  const params: any = { page, page_size: pageSize }
+  if (status) {
+    params.status = status
+  }
+  const response = await api.get('/admin/tickets', { params })
   return response.data
 }
 
@@ -209,6 +218,59 @@ export const updateTicket = async (
   if (comment) formData.append('comment', comment)
   
   const response = await axios.post(`/api/admin/tickets/${ticketId}/update`, formData, {
+    headers: {
+      'Authorization': `Bearer ${localStorage.getItem('token')}`
+    }
+  })
+  return response.data
+}
+
+// ==================== 新增API：统计数据 ====================
+
+export const getStatistics = async (): Promise<any> => {
+  const response = await api.get('/admin/statistics')
+  return response.data
+}
+
+// ==================== 新增API：举报列表（支持分页和筛选） ====================
+
+export const getReports = async (status?: string, page: number = 1, pageSize: number = 10): Promise<any> => {
+  const params: any = { page, page_size: pageSize }
+  if (status) {
+    params.status = status
+  }
+  const response = await api.get('/admin/reports', { params })
+  return response.data
+}
+
+export const getReportDetail = async (reportId: number): Promise<any> => {
+  const response = await api.get(`/admin/reports/${reportId}`)
+  return response.data
+}
+
+// ==================== 新增API：用户管理 ====================
+
+export const getUsers = async (role?: string, keyword?: string): Promise<any[]> => {
+  const params: any = {}
+  if (role) params.role = role
+  if (keyword) params.keyword = keyword
+  const response = await api.get('/admin/users', { params })
+  return response.data
+}
+
+// ==================== 新增API：数据管理 ====================
+
+export const getDataItems = async (eventType?: string): Promise<any[]> => {
+  const url = eventType ? `/admin/data?event_type=${eventType}` : '/admin/data'
+  const response = await api.get(url)
+  return response.data
+}
+
+export const saveDataLabel = async (dataId: number, label: string): Promise<any> => {
+  const formData = new FormData()
+  formData.append('label', label)
+  
+  const response = await axios.post(`/api/admin/data/${dataId}/label`, formData, {
     headers: {
       'Authorization': `Bearer ${localStorage.getItem('token')}`
     }

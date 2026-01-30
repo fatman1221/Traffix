@@ -24,16 +24,20 @@
 }
 
 .logout-btn {
-  padding: 8px 16px;
+  padding: 6px 12px;
   border: 1px solid #ddd;
   background: white;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
+  white-space: nowrap;
+  transition: all 0.2s;
 }
 
 .logout-btn:hover {
   background: #f5f5f5;
+  border-color: #667eea;
+  color: #667eea;
 }
 
 .public-tabs {
@@ -63,7 +67,7 @@
 .public-tabs button.active {
   color: #667eea;
   border-bottom-color: #667eea;
-  background: #f8f9ff;
+  background: rgba(102, 126, 234, 0.05);
 }
 
 .public-content {
@@ -81,15 +85,55 @@
   overflow: hidden;
 }
 
-.my-reports-wrapper {
+.my-reports-wrapper,
+.my-messages-wrapper {
   display: flex;
   flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* 右下角浮动按钮 */
+.my-float-button {
+  position: fixed;
+  right: 20px;
+  bottom: 80px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #5568d3 100%);
+  color: white;
+  border: none;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  z-index: 99;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+}
+
+.my-float-button:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
 /* 移动端适配 */
 @media (max-width: 768px) {
+  .public-header {
+    padding: 12px 16px;
+  }
+
   .public-header h1 {
     font-size: 16px;
+  }
+
+  .logout-btn {
+    padding: 6px 10px;
+    font-size: 12px;
   }
 
   .public-tabs button {
@@ -99,6 +143,14 @@
 
   .public-content {
     padding-bottom: 60px;
+  }
+
+  .my-float-button {
+    right: 16px;
+    bottom: 76px;
+    width: 52px;
+    height: 52px;
+    font-size: 15px;
   }
 }
 

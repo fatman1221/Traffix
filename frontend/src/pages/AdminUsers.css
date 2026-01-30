@@ -1,39 +1,42 @@
-.admin-tickets-container {
+.admin-users-container {
   padding: 20px;
   height: 100%;
   display: flex;
   flex-direction: column;
 }
 
-.tickets-header {
+.users-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
 }
 
-.tickets-header h1 {
+.users-header h1 {
   margin: 0;
   font-size: 24px;
   color: #333;
 }
 
-.tickets-count {
-  padding: 8px 16px;
-  background: linear-gradient(135deg, #667eea 0%, #5568d3 100%);
-  color: white;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.tickets-filters {
+.header-actions {
   display: flex;
   gap: 12px;
-  margin-bottom: 20px;
 }
 
-.tickets-filters button {
+.search-input {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 300px;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.clear-search-btn {
   padding: 8px 16px;
   border: 1px solid #ddd;
   background: white;
@@ -43,18 +46,39 @@
   transition: all 0.2s;
 }
 
-.tickets-filters button:hover {
+.clear-search-btn:hover {
   border-color: #667eea;
   color: #667eea;
 }
 
-.tickets-filters button.active {
+.users-filters {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.users-filters button {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.users-filters button:hover {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.users-filters button.active {
   background: linear-gradient(135deg, #667eea 0%, #5568d3 100%);
   color: white;
   border-color: #667eea;
 }
 
-.tickets-table-container {
+.users-table {
   flex: 1;
   background: white;
   border-radius: 8px;
@@ -62,19 +86,19 @@
   overflow: auto;
 }
 
-.tickets-table {
+.users-table table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.tickets-table thead {
+.users-table thead {
   background: #f5f5f5;
   position: sticky;
   top: 0;
   z-index: 10;
 }
 
-.tickets-table th {
+.users-table th {
   padding: 12px;
   text-align: left;
   font-size: 14px;
@@ -83,60 +107,53 @@
   border-bottom: 2px solid #eee;
 }
 
-.tickets-table td {
+.users-table td {
   padding: 12px;
   font-size: 14px;
   color: #666;
   border-bottom: 1px solid #f5f5f5;
 }
 
-.tickets-table tbody tr:hover {
+.users-table tbody tr:hover {
   background: #f9f9f9;
 }
 
-.status {
+.role-badge {
   padding: 4px 12px;
   border-radius: 12px;
   font-size: 12px;
   font-weight: 500;
-  display: inline-block;
 }
 
-.status-pending {
-  background: #fff3cd;
-  color: #856404;
-}
-
-.status-assigned,
-.status-processing {
-  background: #cfe2ff;
-  color: #084298;
-}
-
-.status-resolved {
-  background: #d4edda;
-  color: #155724;
-}
-
-.status-closed {
-  background: #e2e3e5;
-  color: #383d41;
-}
-
-.view-btn {
-  padding: 6px 12px;
-  background: linear-gradient(135deg, #667eea 0%, #5568d3 100%);
+.role-badge.role-admin {
+  background: #ff9800;
   color: white;
-  border: none;
+}
+
+.role-badge.role-public {
+  background: #4caf50;
+  color: white;
+}
+
+.action-btn {
+  padding: 4px 12px;
+  margin-right: 8px;
+  border: 1px solid #ddd;
+  background: white;
   border-radius: 4px;
   cursor: pointer;
   font-size: 12px;
   transition: all 0.2s;
 }
 
-.view-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+.action-btn:hover {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.action-btn.danger:hover {
+  border-color: #f44336;
+  color: #f44336;
 }
 
 .empty-cell {
@@ -145,39 +162,15 @@
   color: #999;
 }
 
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 16px;
+.users-footer {
   margin-top: 20px;
-  padding: 16px;
+  padding: 12px;
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.page-btn {
-  padding: 8px 16px;
-  border: 1px solid #ddd;
-  background: white;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s;
-}
-
-.page-btn:hover:not(:disabled) {
-  border-color: #667eea;
-  color: #667eea;
-}
-
-.page-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.page-info {
+.users-count {
   font-size: 14px;
   color: #666;
 }
@@ -191,11 +184,22 @@
 
 /* 移动端适配 */
 @media (max-width: 768px) {
-  .tickets-table-container {
+  .users-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .search-input {
+    width: 100%;
+  }
+
+  .users-table {
     overflow-x: auto;
   }
 
-  .tickets-table {
+  .users-table table {
     min-width: 800px;
   }
 }
+

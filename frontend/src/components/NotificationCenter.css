@@ -1,0 +1,139 @@
+.notification-wrapper {
+  position: relative;
+  margin-right: 8px;
+}
+
+.notification-button {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 18px;
+  transition: all 0.2s ease;
+}
+
+.notification-button:hover {
+  background: rgba(255, 255, 255, 0.26);
+  transform: translateY(-1px);
+}
+
+.notification-button.active {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.notification-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #e53935;
+  color: #ffffff;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notification-panel {
+  position: absolute;
+  top: 46px;
+  right: 0;
+  width: 320px;
+  max-height: 420px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  z-index: 20;
+}
+
+.notification-panel-header {
+  padding: 10px 14px;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a237e;
+}
+
+.notification-list {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.notification-empty {
+  padding: 20px;
+  text-align: center;
+  font-size: 13px;
+  color: #9e9e9e;
+}
+
+.notification-item {
+  padding: 10px 14px;
+  display: flex;
+  align-items: flex-start;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.notification-item:last-child {
+  border-bottom: none;
+}
+
+.notification-main {
+  flex: 1;
+}
+
+.notification-message {
+  font-size: 13px;
+  color: #212121;
+  margin-bottom: 4px;
+}
+
+.notification-time {
+  font-size: 11px;
+  color: #9e9e9e;
+}
+
+.notification-info {
+  border-left: 3px solid #42a5f5;
+}
+
+.notification-success {
+  border-left: 3px solid #66bb6a;
+}
+
+.notification-error {
+  border-left: 3px solid #ef5350;
+}
+
+.notification-unread .notification-message {
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .notification-panel {
+    width: 260px;
+    right: -40px;
+  }
+}
+
+{
+  "cells": [],
+  "metadata": {
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 2
+}

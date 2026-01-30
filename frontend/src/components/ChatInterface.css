@@ -8,13 +8,13 @@
 }
 
 .chat-header {
-  background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+  background: linear-gradient(135deg, #667eea 0%, #5568d3 100%);
   color: white;
   padding: 15px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 10px rgba(102, 126, 234, 0.35);
   flex-shrink: 0;
 }
 
@@ -24,12 +24,17 @@
   margin: 0;
 }
 
+.chat-header-actions {
+  display: flex;
+  align-items: center;
+}
+
 .history-toggle {
   background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   color: white;
   padding: 8px 16px;
-  border-radius: 8px;
+  border-radius: 999px;
   cursor: pointer;
   font-size: 14px;
   transition: all 0.3s ease;
