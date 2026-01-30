@@ -6,6 +6,7 @@ interface MyDrawerProps {
   onClose: () => void
   onSelectReports: () => void
   onSelectMessages: () => void
+  onLogout: () => void
 }
 
 const MyDrawer: React.FC<MyDrawerProps> = ({
@@ -13,6 +14,7 @@ const MyDrawer: React.FC<MyDrawerProps> = ({
   onClose,
   onSelectReports,
   onSelectMessages,
+  onLogout,
 }) => {
   if (!open) return null
 
@@ -36,6 +38,14 @@ const MyDrawer: React.FC<MyDrawerProps> = ({
             <div className="my-drawer-item-content">
               <div className="my-drawer-item-title">我的消息</div>
               <div className="my-drawer-item-desc">查看聊天会话记录</div>
+            </div>
+            <div className="my-drawer-item-arrow">›</div>
+          </div>
+          <div className="my-drawer-divider"></div>
+          <div className="my-drawer-item my-drawer-item-logout" onClick={onLogout}>
+            <div className="my-drawer-item-content">
+              <div className="my-drawer-item-title">退出登录</div>
+              <div className="my-drawer-item-desc">安全退出当前账号</div>
             </div>
             <div className="my-drawer-item-arrow">›</div>
           </div>

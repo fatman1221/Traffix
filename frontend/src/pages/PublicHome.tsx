@@ -59,7 +59,6 @@ const PublicHome: React.FC = () => {
     <div className="public-home-container">
       <div className="public-header">
         <h1>交通事件感知系统</h1>
-        <button className="logout-btn" onClick={handleLogout}>退出</button>
       </div>
 
       <div className="public-content">
@@ -118,6 +117,7 @@ const PublicHome: React.FC = () => {
         onClose={handleCloseDrawer}
         onSelectReports={handleSelectReports}
         onSelectMessages={handleSelectMessages}
+        onLogout={handleLogout}
       />
     </div>
   )

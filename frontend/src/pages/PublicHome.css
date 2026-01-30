@@ -98,7 +98,7 @@
 .my-float-button {
   position: fixed;
   right: 20px;
-  bottom: 80px;
+  bottom: 100px;
   width: 56px;
   height: 56px;
   border-radius: 50%;
@@ -147,7 +147,7 @@
 
   .my-float-button {
     right: 16px;
-    bottom: 76px;
+    bottom: 96px;
     width: 52px;
     height: 52px;
     font-size: 15px;

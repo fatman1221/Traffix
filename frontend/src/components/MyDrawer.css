@@ -118,6 +118,24 @@
   margin-left: 12px;
 }
 
+.my-drawer-divider {
+  height: 1px;
+  background: #eee;
+  margin: 8px 0;
+}
+
+.my-drawer-item-logout {
+  color: #f44336;
+}
+
+.my-drawer-item-logout .my-drawer-item-title {
+  color: #f44336;
+}
+
+.my-drawer-item-logout:active {
+  background: rgba(244, 67, 54, 0.1);
+}
+
 /* 移动端适配 */
 @media (max-width: 768px) {
   .my-drawer {
