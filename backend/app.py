@@ -826,15 +826,25 @@ async def recognize_image(
 @app.get("/api/admin/tickets")
 async def get_tickets(
     status: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 10,
     current_user: dict = Depends(get_current_admin_user),
     db: Session = Depends(get_db)
 ):
-    """获取工单列表（管理端）"""
+    """获取工单列表（管理端）- 支持分页和状态筛选"""
+    from sqlalchemy import func
+    
+    # 构建查询
     query = db.query(Ticket)
     if status:
         query = query.filter(Ticket.status == status)
     
-    tickets = query.order_by(Ticket.created_at.desc()).all()
+    # 总数
+    total = query.count()
+    
+    # 分页
+    offset = (page - 1) * page_size
+    tickets = query.order_by(Ticket.created_at.desc()).offset(offset).limit(page_size).all()
     
     result = []
     for ticket in tickets:
@@ -855,7 +865,13 @@ async def get_tickets(
             "updated_at": ticket.updated_at.isoformat()
         })
     
-    return result
+    return {
+        "items": result,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size
+    }
 
 
 @app.get("/api/admin/tickets/{ticket_id}")
@@ -1029,6 +1045,311 @@ async def update_ticket(
             "priority": ticket.priority
         }
     }
+
+
+# ==================== 新增API：统计数据 ====================
+
+@app.get("/api/admin/statistics")
+async def get_statistics(
+    current_user: dict = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """获取统计数据（管理端）"""
+    from sqlalchemy import func, and_
+    from datetime import datetime, timedelta
+    
+    # 总举报数
+    total_reports = db.query(func.count(Report.id)).scalar() or 0
+    
+    # 总工单数
+    total_tickets = db.query(func.count(Ticket.id)).scalar() or 0
+    
+    # 待处理工单数
+    pending_tickets = db.query(func.count(Ticket.id)).filter(Ticket.status == 'pending').scalar() or 0
+    
+    # 处理中工单数
+    processing_tickets = db.query(func.count(Ticket.id)).filter(Ticket.status == 'processing').scalar() or 0
+    
+    # 已解决工单数
+    resolved_tickets = db.query(func.count(Ticket.id)).filter(Ticket.status == 'resolved').scalar() or 0
+    
+    # 今日举报数
+    today = datetime.utcnow().date()
+    today_reports = db.query(func.count(Report.id)).filter(
+        func.date(Report.created_at) == today
+    ).scalar() or 0
+    
+    # 今日工单数
+    today_tickets = db.query(func.count(Ticket.id)).filter(
+        func.date(Ticket.created_at) == today
+    ).scalar() or 0
+    
+    # 事件类型统计
+    event_type_stats = db.query(
+        Report.event_type,
+        func.count(Report.id).label('count')
+    ).filter(
+        Report.event_type.isnot(None)
+    ).group_by(Report.event_type).all()
+    
+    event_type_list = [
+        {"type": item[0] or "未分类", "count": item[1]}
+        for item in event_type_stats
+    ]
+    
+    # 工单状态统计
+    status_stats = db.query(
+        Ticket.status,
+        func.count(Ticket.id).label('count')
+    ).group_by(Ticket.status).all()
+    
+    status_map = {
+        'pending': '待处理',
+        'assigned': '已指派',
+        'processing': '处理中',
+        'resolved': '已解决',
+        'closed': '已关闭'
+    }
+    
+    status_list = [
+        {"status": status_map.get(item[0], item[0]), "count": item[1]}
+        for item in status_stats
+    ]
+    
+    return {
+        "total_reports": total_reports,
+        "total_tickets": total_tickets,
+        "pending_tickets": pending_tickets,
+        "processing_tickets": processing_tickets,
+        "resolved_tickets": resolved_tickets,
+        "today_reports": today_reports,
+        "today_tickets": today_tickets,
+        "event_type_stats": event_type_list,
+        "status_stats": status_list
+    }
+
+
+# ==================== 新增API：待审核举报列表 ====================
+
+@app.get("/api/admin/reports")
+async def get_reports(
+    status: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 10,
+    current_user: dict = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """获取举报列表（管理端）- 支持分页和状态筛选"""
+    from sqlalchemy import func
+    
+    # 构建查询
+    query = db.query(Report)
+    
+    # 状态筛选
+    if status:
+        if status == 'pending_review':
+            # 待审核：包括 manual_review 和 pending
+            query = query.filter(Report.status.in_(['manual_review', 'pending']))
+        else:
+            query = query.filter(Report.status == status)
+    else:
+        # 默认显示所有状态
+        pass
+    
+    # 总数
+    total = query.count()
+    
+    # 分页
+    offset = (page - 1) * page_size
+    reports = query.order_by(Report.created_at.desc()).offset(offset).limit(page_size).all()
+    
+    result = []
+    for report in reports:
+        user = report.user
+        images = [img.image_url for img in report.images]
+        recognition_results = [
+            {
+                "question": r.question,
+                "answer": r.answer,
+                "event_type_detected": r.event_type_detected,
+                "confidence": float(r.confidence) if r.confidence else None
+            }
+            for r in report.recognition_results
+        ]
+        
+        result.append({
+            "id": report.id,
+            "report_id": report.id,
+            "user_id": report.user_id,
+            "username": user.username if user else "未知用户",
+            "event_type": report.event_type,
+            "location": report.location,
+            "description": report.description,
+            "status": report.status,
+            "images": images,
+            "recognition_results": recognition_results,
+            "auto_review_result": report.auto_review_result,
+            "auto_review_confidence": float(report.auto_review_confidence) if report.auto_review_confidence else None,
+            "created_at": report.created_at.isoformat()
+        })
+    
+    return {
+        "items": result,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size
+    }
+
+
+@app.get("/api/admin/reports/{report_id}")
+async def get_report_detail(
+    report_id: int,
+    current_user: dict = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """获取举报详情（管理端）"""
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="举报不存在")
+    
+    user = report.user
+    images = [img.image_url for img in report.images]
+    recognition_results = [
+        {
+            "question": r.question,
+            "answer": r.answer,
+            "event_type_detected": r.event_type_detected,
+            "confidence": float(r.confidence) if r.confidence else None
+        }
+        for r in report.recognition_results
+    ]
+    
+    return {
+        "id": report.id,
+        "report_id": report.id,
+        "user_id": report.user_id,
+        "username": user.username if user else "未知用户",
+        "event_type": report.event_type,
+        "location": report.location,
+        "description": report.description,
+        "status": report.status,
+        "images": images,
+        "recognition_results": recognition_results,
+        "auto_review_result": report.auto_review_result,
+        "auto_review_confidence": float(report.auto_review_confidence) if report.auto_review_confidence else None,
+        "created_at": report.created_at.isoformat()
+    }
+
+
+# ==================== 新增API：用户管理 ====================
+
+@app.get("/api/admin/users")
+async def get_users(
+    role: Optional[str] = None,
+    keyword: Optional[str] = None,
+    current_user: dict = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """获取用户列表（管理端）- 支持角色筛选和关键词搜索"""
+    from sqlalchemy import or_
+    
+    query = db.query(User)
+    
+    # 角色筛选
+    if role:
+        query = query.filter(User.role == role)
+    
+    # 关键词搜索（用户名、手机号、姓名）
+    if keyword:
+        keyword_pattern = f"%{keyword}%"
+        query = query.filter(
+            or_(
+                User.username.like(keyword_pattern),
+                User.phone.like(keyword_pattern),
+                User.real_name.like(keyword_pattern)
+            )
+        )
+    
+    users = query.order_by(User.created_at.desc()).all()
+    
+    result = []
+    for user in users:
+        result.append({
+            "id": user.id,
+            "username": user.username,
+            "phone": user.phone,
+            "role": user.role,
+            "real_name": user.real_name,
+            "created_at": user.created_at.isoformat()
+        })
+    
+    return result
+
+
+# ==================== 新增API：数据管理 ====================
+
+@app.get("/api/admin/data")
+async def get_data_items(
+    event_type: Optional[str] = None,
+    current_user: dict = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """获取数据项列表（管理端）- 基于举报图片"""
+    query = db.query(ReportImage).join(Report)
+    
+    if event_type:
+        query = query.filter(Report.event_type == event_type)
+    
+    images = query.order_by(ReportImage.created_at.desc()).all()
+    
+    result = []
+    for img in images:
+        report = img.report
+        recognition_result = None
+        if report and report.recognition_results:
+            # 获取第一个识别结果
+            first_result = report.recognition_results[0]
+            recognition_result = {
+                "event_type": first_result.event_type_detected,
+                "confidence": float(first_result.confidence) if first_result.confidence else None
+            }
+        
+        confidence_value = None
+        if recognition_result and recognition_result.get("confidence"):
+            confidence_value = float(recognition_result["confidence"])
+        
+        result.append({
+            "id": img.id,
+            "image_url": img.image_url,
+            "event_type": report.event_type if report else None,
+            "label": report.event_type if report else None,  # 使用举报的事件类型作为标签
+            "confidence": confidence_value,
+            "created_at": img.created_at.isoformat()
+        })
+    
+    return result
+
+
+@app.post("/api/admin/data/{data_id}/label")
+async def save_data_label(
+    data_id: int,
+    label: str = Form(...),
+    current_user: dict = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """保存数据标签（管理端）"""
+    image = db.query(ReportImage).filter(ReportImage.id == data_id).first()
+    if not image:
+        raise HTTPException(status_code=404, detail="数据项不存在")
+    
+    # 更新对应举报的事件类型
+    report = image.report
+    if report:
+        report.event_type = label
+        db.commit()
+    
+    return {"success": True, "message": "标签保存成功"}
 
 
 if __name__ == "__main__":

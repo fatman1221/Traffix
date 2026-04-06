@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
 from jose.exceptions import JWTClaimsError, ExpiredSignatureError
-from passlib.context import CryptContext
+import bcrypt
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import os
@@ -14,9 +14,6 @@ import logging
 
 # 配置日志
 logger = logging.getLogger(__name__)
-
-# 密码加密上下文
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # JWT配置
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
@@ -29,12 +26,35 @@ security = HTTPBearer(auto_error=False)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """验证密码"""
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        # 确保密码是字节类型
+        if isinstance(plain_password, str):
+            plain_password = plain_password.encode('utf-8')
+        if isinstance(hashed_password, str):
+            hashed_password = hashed_password.encode('utf-8')
+        return bcrypt.checkpw(plain_password, hashed_password)
+    except Exception as e:
+        logger.error(f"密码验证失败: {e}")
+        return False
 
 
 def get_password_hash(password: str) -> str:
     """生成密码哈希"""
-    return pwd_context.hash(password)
+    try:
+        # 确保密码是字节类型
+        if isinstance(password, str):
+            password_bytes = password.encode('utf-8')
+        else:
+            password_bytes = password
+        
+        # 生成盐并哈希密码
+        salt = bcrypt.gensalt()
+        hashed = bcrypt.hashpw(password_bytes, salt)
+        # 返回字符串格式
+        return hashed.decode('utf-8')
+    except Exception as e:
+        logger.error(f"密码哈希生成失败: {e}")
+        raise ValueError(f"无法生成密码哈希: {e}")
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:

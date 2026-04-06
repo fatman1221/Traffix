@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { getTicketDetail, reviewReport, updateTicket, logout } from '../api'
+import { getTicketDetail, reviewReport, updateTicket } from '../api'
 import './AdminTicketDetail.css'
 
 const AdminTicketDetail: React.FC = () => {
@@ -60,11 +60,6 @@ const AdminTicketDetail: React.FC = () => {
     }
   }
 
-  const handleLogout = () => {
-    logout()
-    navigate('/login')
-  }
-
   if (loading) {
     return <div className="loading">加载中...</div>
   }
@@ -79,7 +74,6 @@ const AdminTicketDetail: React.FC = () => {
         <h1>工单详情 - {ticket.ticket_no}</h1>
         <div className="header-actions">
           <button onClick={() => navigate('/admin/tickets')}>返回列表</button>
-          <button onClick={handleLogout}>退出</button>
         </div>
       </div>
 

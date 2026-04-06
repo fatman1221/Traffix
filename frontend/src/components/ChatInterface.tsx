@@ -2,11 +2,22 @@ import React, { useState, useEffect, useRef } from 'react'
 import MessageList from './MessageList'
 import MessageInput from './MessageInput'
 import HistoryPanel from './HistoryPanel'
+import { NotificationItem } from './NotificationCenter'
 import { Message, ChatSession } from '../types'
 import { getChatSessions, createChatSession, getMessages, sendMessage } from '../api'
 import './ChatInterface.css'
 
-const ChatInterface: React.FC = () => {
+interface ChatInterfaceProps {
+  notifications: NotificationItem[]
+  onAddNotification: (type: NotificationItem['type'], message: string) => void
+  onMarkNotificationsAsRead: () => void
+}
+
+const ChatInterface: React.FC<ChatInterfaceProps> = ({
+  notifications,
+  onAddNotification,
+  onMarkNotificationsAsRead
+}) => {
   const [messages, setMessages] = useState<Message[]>([])
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null)
@@ -65,6 +76,8 @@ const ChatInterface: React.FC = () => {
   const handleSendMessage = async (content: string, image?: File) => {
     if (!content.trim() && !image) return
 
+    onAddNotification('info', '正在发送消息并调用模型进行分析…')
+
     let sessionId = currentSessionId
     if (!sessionId) {
       try {
@@ -101,6 +114,7 @@ const ChatInterface: React.FC = () => {
         created_at: response.created_at
       }
       setMessages(prev => [...prev, assistantMessage])
+      onAddNotification('success', '模型已返回分析结果')
     } catch (error: any) {
       console.error('发送消息失败:', error)
       // 尝试从响应中获取详细错误信息
@@ -112,6 +126,7 @@ const ChatInterface: React.FC = () => {
       } else if (error?.message) {
         errorContent = `错误: ${error.message}`
       }
+      onAddNotification('error', errorContent)
       const errorMessage: Message = {
         id: Date.now() + 1,
         session_id: sessionId!,
@@ -135,12 +150,14 @@ const ChatInterface: React.FC = () => {
     <div className="chat-interface">
       <div className="chat-header">
         <h1>Traffix 智能体</h1>
-        <button 
-          className="history-toggle"
-          onClick={() => setShowHistory(!showHistory)}
-        >
-          {showHistory ? '隐藏历史' : '历史记录'}
-        </button>
+        <div className="chat-header-actions">
+          <button 
+            className="history-toggle"
+            onClick={() => setShowHistory(!showHistory)}
+          >
+            {showHistory ? '隐藏历史' : '历史记录'}
+          </button>
+        </div>
       </div>
 
       <div className="chat-container">
