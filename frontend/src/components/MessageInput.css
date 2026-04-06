@@ -59,8 +59,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f5f5f5;
-  border: 1px solid #e0e0e0;
+  background: var(--color-primary-soft);
+  border: 1px solid var(--color-primary-muted);
+  color: var(--color-primary);
   border-radius: 10px;
   cursor: pointer;
   font-size: 20px;
@@ -69,7 +70,8 @@
 }
 
 .image-button:hover {
-  background: #e8e8e8;
+  background: var(--color-primary-muted);
+  border-color: var(--color-primary);
   transform: scale(1.05);
 }
 
@@ -88,7 +90,7 @@
 
 .message-textarea:focus {
   outline: none;
-  border-color: #9b59b6;
+  border-color: var(--color-primary);
   background: white;
 }
 
@@ -99,7 +101,7 @@
 
 .send-button {
   padding: 12px 24px;
-  background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+  background: var(--color-primary);
   color: white;
   border: none;
   border-radius: 12px;
@@ -111,8 +113,9 @@
 }
 
 .send-button:hover:not(:disabled) {
+  background: var(--color-primary-hover);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(155, 89, 182, 0.3);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.35);
 }
 
 .send-button:disabled {

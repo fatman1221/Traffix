@@ -1,3 +1,12 @@
+/* 与登录/注册页统一的主题色（按钮、强调） */
+:root {
+  --color-primary: #667eea;
+  --color-primary-hover: #5568d3;
+  --color-primary-active: #4c5fd1;
+  --color-primary-soft: #f8f9ff;
+  --color-primary-muted: rgba(102, 126, 234, 0.12);
+}
+
 * {
   margin: 0;
   padding: 0;

@@ -31,7 +31,7 @@
 
 .report-id {
   font-weight: bold;
-  color: #667eea;
+  color: var(--color-primary);
 }
 
 .status {

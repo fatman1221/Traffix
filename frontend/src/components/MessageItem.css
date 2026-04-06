@@ -82,7 +82,7 @@
 
 .message-text .markdown-h1 {
   font-size: 1.3em;
-  border-bottom: 2px solid rgba(155, 89, 182, 0.2);
+  border-bottom: 2px solid var(--color-primary-muted);
   padding-bottom: 0.3em;
 }
 
@@ -106,7 +106,7 @@
 }
 
 .message-text .markdown-code-inline {
-  background: rgba(155, 89, 182, 0.1);
+  background: var(--color-primary-muted);
   padding: 2px 6px;
   border-radius: 4px;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
@@ -114,8 +114,8 @@
 }
 
 .message-item.assistant .message-text .markdown-code-inline {
-  background: rgba(155, 89, 182, 0.15);
-  color: #8e44ad;
+  background: var(--color-primary-muted);
+  color: var(--color-primary-hover);
 }
 
 .message-item.user .message-text .markdown-code-inline {
@@ -136,8 +136,8 @@
 }
 
 .message-item.assistant .message-text .markdown-code-block {
-  background: rgba(155, 89, 182, 0.08);
-  border-left: 3px solid #9b59b6;
+  background: var(--color-primary-muted);
+  border-left: 3px solid var(--color-primary);
 }
 
 .message-item.user .message-text .markdown-code-block {
@@ -148,8 +148,8 @@
 .message-text .markdown-blockquote {
   margin: 0.8em 0;
   padding: 0.5em 1em;
-  border-left: 3px solid rgba(155, 89, 182, 0.4);
-  background: rgba(155, 89, 182, 0.05);
+  border-left: 3px solid var(--color-primary-muted);
+  background: var(--color-primary-soft);
   border-radius: 4px;
   font-style: italic;
 }
@@ -170,15 +170,15 @@
 
 /* 链接样式 */
 .message-text a {
-  color: #9b59b6;
+  color: var(--color-primary);
   text-decoration: none;
-  border-bottom: 1px solid rgba(155, 89, 182, 0.3);
+  border-bottom: 1px solid var(--color-primary-muted);
   transition: all 0.2s;
 }
 
 .message-text a:hover {
-  color: #8e44ad;
-  border-bottom-color: #8e44ad;
+  color: var(--color-primary-hover);
+  border-bottom-color: var(--color-primary-hover);
 }
 
 .message-item.user .message-text a {
@@ -192,7 +192,7 @@
 }
 
 .message-item.user .message-text {
-  background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
   color: white;
   border-bottom-right-radius: 4px;
 }
@@ -201,7 +201,7 @@
   background: white;
   color: #333;
   border-bottom-left-radius: 4px;
-  box-shadow: 0 2px 8px rgba(155, 89, 182, 0.1);
+  box-shadow: 0 2px 8px var(--color-primary-muted);
 }
 
 .message-time {

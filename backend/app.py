@@ -4,14 +4,13 @@
 """
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import Response
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey, Enum as SQLEnum, DECIMAL, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session, relationship
 from datetime import datetime
 import os
 from dotenv import load_dotenv
-import aiofiles
 from pathlib import Path
 from typing import Optional, List
 import base64
@@ -24,26 +23,36 @@ from auth import (
     get_current_user, get_current_public_user, get_current_admin_user
 )
 from event_recognition import recognize_event_with_model, auto_review_report
+from object_storage import (
+    init_storage,
+    save_upload,
+    read_upload,
+    public_upload_url_path,
+    suffix_and_mime,
+    UPLOAD_DIR,
+    using_minio,
+)
 
 # 配置日志（需要在其他配置之前）
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 加载环境变量（优先加载 .env，如果不存在则加载 env）
+# 加载环境变量文件（明确指定 env 文件路径）
 BASE_DIR = Path(__file__).parent
-env_file = BASE_DIR / ".env"
-if not env_file.exists():
-    env_file = BASE_DIR / "env"
-load_dotenv(env_file, override=True)  # override=True 确保覆盖已有环境变量
-logger.info(f"加载环境变量文件: {env_file}")
-if env_file.exists():
-    logger.info(f"环境变量文件存在，文件大小: {env_file.stat().st_size} 字节")
+env_path = BASE_DIR / "env"
+load_dotenv(env_path, override=True)  # override=True 确保覆盖已有环境变量
+logger.info(f"加载环境变量文件: {env_path}")
+if env_path.exists():
+    logger.info(f"环境变量文件存在，文件大小: {env_path.stat().st_size} 字节")
     # 验证关键环境变量
     test_provider = os.getenv("MODEL_PROVIDER")
     test_key = os.getenv("DASHSCOPE_API_KEY")
     logger.info(f"MODEL_PROVIDER: {test_provider}, DASHSCOPE_API_KEY: {'已设置' if test_key else '未设置'}")
 else:
-    logger.warning(f"环境变量文件不存在: {env_file}")
+    logger.warning(f"环境变量文件不存在: {env_path}")
+
+init_storage()
+logger.info("上传目录: %s，USE_MINIO=%s", UPLOAD_DIR, using_minio())
 
 # 数据库配置
 DATABASE_URL = os.getenv(
@@ -63,13 +72,8 @@ try:
     logger.info(f"✓ 模型提供者已成功初始化: {MODEL_PROVIDER}, 模型: {MODEL_NAME}")
 except Exception as e:
     logger.error(f"✗ 模型提供者初始化失败: {e}", exc_info=True)
-    logger.error(f"请检查环境变量配置，确保已设置正确的 MODEL_PROVIDER 和相应的 API Key")
     model_provider = None
     logger.warning("模型提供者为 None，后续调用将失败")
-
-# 创建上传目录（BASE_DIR 已在上面定义，这里不需要重复定义）
-UPLOAD_DIR = BASE_DIR / "uploads"
-UPLOAD_DIR.mkdir(exist_ok=True)
 
 # 数据库设置
 engine = create_engine(DATABASE_URL, echo=True)
@@ -226,10 +230,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 静态文件服务（用于图片）
-app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
-
-
 # 数据库依赖
 def get_db():
     db = SessionLocal()
@@ -329,16 +329,10 @@ def call_model(user_content: str, image_path: Optional[str] = None, history: lis
         # 添加当前用户消息
         image_url = None
         if image_path:
-            # 读取图片并转换为 base64
-            image_file = BASE_DIR / image_path
-            if image_file.exists():
-                with open(image_file, 'rb') as f:
-                    image_data = base64.b64encode(f.read()).decode('utf-8')
-                ext = image_file.suffix.lower()
-                mime_type = {
-                    '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
-                    '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp'
-                }.get(ext, 'image/jpeg')
+            raw = read_upload(image_path)
+            if raw:
+                image_data = base64.b64encode(raw).decode('utf-8')
+                _, mime_type = suffix_and_mime(image_path)
                 image_url = f"data:{mime_type};base64,{image_data}"
                 logger.info(f"图片已加载，大小: {len(image_data)} 字符")
         
@@ -375,6 +369,18 @@ def call_model(user_content: str, image_path: Optional[str] = None, history: lis
 
 
 # API 路由
+@app.get("/uploads/{filename}")
+def serve_upload_file(filename: str):
+    """从本地目录或 MinIO 提供上传图片（仅允许单层文件名，防路径穿越）。"""
+    if Path(filename).name != filename or ".." in filename:
+        raise HTTPException(status_code=404, detail="Not found")
+    data = read_upload(f"uploads/{filename}")
+    if not data:
+        raise HTTPException(status_code=404, detail="Not found")
+    _, mime = suffix_and_mime(filename)
+    return Response(content=data, media_type=mime)
+
+
 @app.get("/")
 def read_root():
     return {"message": "Traffix API is running"}
@@ -448,12 +454,8 @@ async def send_message(
     # 保存用户消息
     image_url = None
     if image:
-        # 保存图片
-        file_path = UPLOAD_DIR / f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{image.filename}"
-        async with aiofiles.open(file_path, 'wb') as f:
-            content_data = await image.read()
-            await f.write(content_data)
-        image_url = str(file_path.relative_to(BASE_DIR))
+        content_data = await image.read()
+        image_url = save_upload(content_data, image.filename)
     
     # 确保 content 是字符串类型
     user_content_str = str(content) if content else ""
@@ -630,11 +632,8 @@ async def create_report(
     # 保存图片
     image_urls = []
     for idx, image in enumerate(images):
-        file_path = UPLOAD_DIR / f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}_{image.filename}"
-        async with aiofiles.open(file_path, 'wb') as f:
-            content_data = await image.read()
-            await f.write(content_data)
-        image_urls.append(str(file_path.relative_to(BASE_DIR)))
+        content_data = await image.read()
+        image_urls.append(save_upload(content_data, f"{uuid.uuid4().hex[:8]}_{image.filename}"))
     
     # 获取用户信息
     user = db.query(User).filter(User.id == current_user["user_id"]).first()
@@ -662,17 +661,11 @@ async def create_report(
         db.add(report_image)
     
     # 使用第一张图片进行模型识别
-    first_image_path = BASE_DIR / image_urls[0]
-    if first_image_path.exists():
+    first_raw = read_upload(image_urls[0])
+    if first_raw:
         try:
-            # 读取图片并转换为base64
-            with open(first_image_path, 'rb') as f:
-                image_data = base64.b64encode(f.read()).decode('utf-8')
-            ext = first_image_path.suffix.lower()
-            mime_type = {
-                '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
-                '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp'
-            }.get(ext, 'image/jpeg')
+            image_data = base64.b64encode(first_raw).decode('utf-8')
+            _, mime_type = suffix_and_mime(image_urls[0])
             image_base64 = f"data:{mime_type};base64,{image_data}"
             
             # 调用模型识别
@@ -792,20 +785,10 @@ async def recognize_image(
     db: Session = Depends(get_db)
 ):
     """图片事件识别接口（问答形式）"""
-    # 保存图片
-    file_path = UPLOAD_DIR / f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}_{image.filename}"
-    async with aiofiles.open(file_path, 'wb') as f:
-        content_data = await image.read()
-        await f.write(content_data)
-    
-    # 读取图片并转换为base64
-    with open(file_path, 'rb') as f:
-        image_data = base64.b64encode(f.read()).decode('utf-8')
-    ext = file_path.suffix.lower()
-    mime_type = {
-        '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
-        '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp'
-    }.get(ext, 'image/jpeg')
+    content_data = await image.read()
+    stored = save_upload(content_data, f"{uuid.uuid4().hex[:8]}_{image.filename}")
+    image_data = base64.b64encode(content_data).decode('utf-8')
+    _, mime_type = suffix_and_mime(stored)
     image_base64 = f"data:{mime_type};base64,{image_data}"
     
     if not model_provider:
@@ -831,7 +814,7 @@ async def recognize_image(
             "structured_data": recognition_result.get("structured_data", {}),
             "event_type": recognition_result.get("event_type"),
             "confidence": float(recognition_result.get("confidence", 0.0)),
-            "image_url": f"/uploads/{file_path.name}"
+            "image_url": public_upload_url_path(stored)
         }
     except Exception as e:
         logger.error(f"识别失败: {str(e)}", exc_info=True)
