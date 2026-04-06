@@ -56,6 +56,34 @@ def create_admin():
     finally:
         db.close()
 
+def create_dispatcher():
+    """创建默认审核调度员（管理员在后台也可新建）"""
+    db = SessionLocal()
+    try:
+        u = db.query(User).filter(User.username == "dispatcher").first()
+        if u:
+            print("审核调度员已存在: dispatcher")
+            return
+        user = User(
+            username="dispatcher",
+            phone="13800138001",
+            password_hash=get_password_hash("dispatcher123"),
+            role="dispatcher",
+            real_name="审核调度员",
+        )
+        db.add(user)
+        db.commit()
+        print("审核调度员创建成功：dispatcher / dispatcher123（请登录后修改密码）")
+    except Exception as e:
+        print(f"创建失败: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+
 if __name__ == "__main__":
-    create_admin()
+    if len(sys.argv) > 1 and sys.argv[1] == "dispatcher":
+        create_dispatcher()
+    else:
+        create_admin()
 

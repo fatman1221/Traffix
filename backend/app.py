@@ -20,7 +20,8 @@ import uuid
 from model_providers import create_provider, ModelProvider
 from auth import (
     get_password_hash, verify_password, create_access_token,
-    get_current_user, get_current_public_user, get_current_admin_user
+    get_current_user, get_current_public_user, get_current_admin_user,
+    get_current_staff_user,
 )
 from event_recognition import recognize_event_with_model, auto_review_report
 from object_storage import (
@@ -47,7 +48,11 @@ if env_path.exists():
     # 验证关键环境变量
     test_provider = os.getenv("MODEL_PROVIDER")
     test_key = os.getenv("DASHSCOPE_API_KEY")
-    logger.info(f"MODEL_PROVIDER: {test_provider}, DASHSCOPE_API_KEY: {'已设置' if test_key else '未设置'}")
+    test_minimax = os.getenv("MINIMAX_API_KEY")
+    logger.info(
+        f"MODEL_PROVIDER: {test_provider}, DASHSCOPE_API_KEY: {'已设置' if test_key else '未设置'}, "
+        f"MINIMAX_API_KEY: {'已设置' if test_minimax else '未设置'}"
+    )
 else:
     logger.warning(f"环境变量文件不存在: {env_path}")
 
@@ -61,8 +66,9 @@ DATABASE_URL = os.getenv(
 )
 
 # 模型配置
-MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "aliyun").lower()  # aliyun, ollama, openai
-MODEL_NAME = os.getenv("MODEL_NAME", "qwen-vl-plus")  # 模型名称
+MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "aliyun").lower()  # aliyun, ollama, openai, minimax
+_default_model = "MiniMax-M2.7" if MODEL_PROVIDER == "minimax" else "qwen-vl-plus"
+MODEL_NAME = os.getenv("MODEL_NAME", _default_model)
 
 # 初始化模型提供者
 model_provider = None
@@ -112,7 +118,7 @@ class User(Base):
     username = Column(String(50), unique=True, nullable=False, index=True)
     phone = Column(String(20), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
-    role = Column(SQLEnum('public', 'admin', name='user_role'), nullable=False, default='public', index=True)
+    role = Column(String(32), nullable=False, default='public', index=True)
     real_name = Column(String(50), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -165,6 +171,10 @@ class Ticket(Base):
     status = Column(SQLEnum('pending', 'assigned', 'processing', 'resolved', 'closed', name='ticket_status'),
                     nullable=False, default='pending', index=True)
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
+    assigned_department = Column(String(200), nullable=True)
+    assigned_unit = Column(String(200), nullable=True)
+    department_code = Column(String(64), nullable=True)
+    unit_code = Column(String(64), nullable=True)
     priority = Column(SQLEnum('low', 'medium', 'high', 'urgent', name='ticket_priority'),
                       nullable=False, default='medium')
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
@@ -563,7 +573,8 @@ async def register(
             "id": user.id,
             "username": user.username,
             "phone": user.phone,
-            "role": user.role
+            "role": user.role,
+            "real_name": user.real_name,
         }
     }
 
@@ -589,7 +600,8 @@ async def login(
             "id": user.id,
             "username": user.username,
             "phone": user.phone,
-            "role": user.role
+            "role": user.role,
+            "real_name": user.real_name,
         }
     }
 
@@ -828,7 +840,7 @@ async def get_tickets(
     status: Optional[str] = None,
     page: int = 1,
     page_size: int = 10,
-    current_user: dict = Depends(get_current_admin_user),
+    current_user: dict = Depends(get_current_staff_user),
     db: Session = Depends(get_db)
 ):
     """获取工单列表（管理端）- 支持分页和状态筛选"""
@@ -860,6 +872,10 @@ async def get_tickets(
             "status": ticket.status,
             "priority": ticket.priority,
             "assigned_to": ticket.assigned_to,
+            "assigned_department": ticket.assigned_department,
+            "assigned_unit": ticket.assigned_unit,
+            "department_code": ticket.department_code,
+            "unit_code": ticket.unit_code,
             "images": images,
             "created_at": ticket.created_at.isoformat(),
             "updated_at": ticket.updated_at.isoformat()
@@ -877,7 +893,7 @@ async def get_tickets(
 @app.get("/api/admin/tickets/{ticket_id}")
 async def get_ticket_detail(
     ticket_id: int,
-    current_user: dict = Depends(get_current_admin_user),
+    current_user: dict = Depends(get_current_staff_user),
     db: Session = Depends(get_db)
 ):
     """获取工单详情（管理端）"""
@@ -920,6 +936,10 @@ async def get_ticket_detail(
         "status": ticket.status,
         "priority": ticket.priority,
         "assigned_to": ticket.assigned_to,
+        "assigned_department": ticket.assigned_department,
+        "assigned_unit": ticket.assigned_unit,
+        "department_code": ticket.department_code,
+        "unit_code": ticket.unit_code,
         "images": images,
         "recognition_results": recognition_results,
         "review_records": review_records,
@@ -943,7 +963,7 @@ async def review_report(
     report_id: int,
     review_result: str = Form(...),
     review_comment: Optional[str] = Form(None),
-    current_user: dict = Depends(get_current_admin_user),
+    current_user: dict = Depends(get_current_staff_user),
     db: Session = Depends(get_db)
 ):
     """人工复核举报（管理端）"""
@@ -997,10 +1017,14 @@ async def update_ticket(
     assigned_to: Optional[int] = Form(None),
     priority: Optional[str] = Form(None),
     comment: Optional[str] = Form(None),
-    current_user: dict = Depends(get_current_admin_user),
+    assigned_department: Optional[str] = Form(None),
+    assigned_unit: Optional[str] = Form(None),
+    department_code: Optional[str] = Form(None),
+    unit_code: Optional[str] = Form(None),
+    current_user: dict = Depends(get_current_staff_user),
     db: Session = Depends(get_db)
 ):
-    """更新工单状态（管理端）"""
+    """更新工单状态（管理端），支持指派部门/处室"""
     ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="工单不存在")
@@ -1013,23 +1037,53 @@ async def update_ticket(
             raise HTTPException(status_code=400, detail="无效的状态")
         ticket.status = status
     
-    if assigned_to:
-        ticket.assigned_to = assigned_to
+    if assigned_to is not None:
+        ticket.assigned_to = assigned_to if assigned_to > 0 else None
     
     if priority:
         if priority not in ["low", "medium", "high", "urgent"]:
             raise HTTPException(status_code=400, detail="无效的优先级")
         ticket.priority = priority
+
+    dept_comment_parts = []
+    if assigned_department is not None:
+        ticket.assigned_department = assigned_department.strip() or None
+        if ticket.assigned_department:
+            dept_comment_parts.append(f"部门:{ticket.assigned_department}")
+    if assigned_unit is not None:
+        ticket.assigned_unit = assigned_unit.strip() or None
+        if ticket.assigned_unit:
+            dept_comment_parts.append(f"处室:{ticket.assigned_unit}")
+    if department_code is not None:
+        ticket.department_code = department_code.strip() or None
+    if unit_code is not None:
+        ticket.unit_code = unit_code.strip() or None
+    if dept_comment_parts and ticket.status == "pending":
+        ticket.status = "assigned"
+    
+    merged_comment = comment
+    if dept_comment_parts:
+        extra = "；".join(dept_comment_parts)
+        merged_comment = f"{extra}" + (f" | {comment}" if comment else "")
     
     # 保存处理记录
-    if status or assigned_to or priority or comment:
+    if (
+        status
+        or assigned_to is not None
+        or priority
+        or comment
+        or assigned_department is not None
+        or assigned_unit is not None
+        or department_code is not None
+        or unit_code is not None
+    ):
         record = TicketRecord(
             ticket_id=ticket.id,
             operator_id=current_user["user_id"],
             action="update",
             old_status=old_status,
             new_status=ticket.status,
-            comment=comment
+            comment=merged_comment or comment,
         )
         db.add(record)
     
@@ -1042,7 +1096,11 @@ async def update_ticket(
             "id": ticket.id,
             "status": ticket.status,
             "assigned_to": ticket.assigned_to,
-            "priority": ticket.priority
+            "priority": ticket.priority,
+            "assigned_department": ticket.assigned_department,
+            "assigned_unit": ticket.assigned_unit,
+            "department_code": ticket.department_code,
+            "unit_code": ticket.unit_code,
         }
     }
 
@@ -1051,7 +1109,7 @@ async def update_ticket(
 
 @app.get("/api/admin/statistics")
 async def get_statistics(
-    current_user: dict = Depends(get_current_admin_user),
+    current_user: dict = Depends(get_current_staff_user),
     db: Session = Depends(get_db)
 ):
     """获取统计数据（管理端）"""
@@ -1136,7 +1194,7 @@ async def get_reports(
     status: Optional[str] = None,
     page: int = 1,
     page_size: int = 10,
-    current_user: dict = Depends(get_current_admin_user),
+    current_user: dict = Depends(get_current_staff_user),
     db: Session = Depends(get_db)
 ):
     """获取举报列表（管理端）- 支持分页和状态筛选"""
@@ -1205,7 +1263,7 @@ async def get_reports(
 @app.get("/api/admin/reports/{report_id}")
 async def get_report_detail(
     report_id: int,
-    current_user: dict = Depends(get_current_admin_user),
+    current_user: dict = Depends(get_current_staff_user),
     db: Session = Depends(get_db)
 ):
     """获取举报详情（管理端）"""
@@ -1287,12 +1345,97 @@ async def get_users(
     return result
 
 
+ALLOWED_USER_ROLES = frozenset({"public", "admin", "dispatcher"})
+
+
+@app.post("/api/admin/users")
+async def admin_create_user(
+    username: str = Form(...),
+    phone: str = Form(...),
+    password: str = Form(...),
+    role: str = Form(...),
+    real_name: Optional[str] = Form(None),
+    current_user: dict = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+):
+    """管理员创建用户（含审核调度员）"""
+    if role not in ALLOWED_USER_ROLES:
+        raise HTTPException(status_code=400, detail="无效的角色")
+    if db.query(User).filter(User.username == username).first():
+        raise HTTPException(status_code=400, detail="用户名已存在")
+    if db.query(User).filter(User.phone == phone).first():
+        raise HTTPException(status_code=400, detail="手机号已注册")
+    user = User(
+        username=username,
+        phone=phone,
+        password_hash=get_password_hash(password),
+        role=role,
+        real_name=real_name,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return {
+        "id": user.id,
+        "username": user.username,
+        "phone": user.phone,
+        "role": user.role,
+        "real_name": user.real_name,
+    }
+
+
+@app.patch("/api/admin/users/{user_id}/role")
+async def admin_update_user_role(
+    user_id: int,
+    role: str = Form(...),
+    current_user: dict = Depends(get_current_admin_user),
+    db: Session = Depends(get_db),
+):
+    """修改用户角色（管理员）"""
+    if role not in ALLOWED_USER_ROLES:
+        raise HTTPException(status_code=400, detail="无效的角色")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    if user.id == current_user["user_id"] and role != "admin":
+        raise HTTPException(status_code=400, detail="不能取消自己的管理员权限")
+    user.role = role
+    db.commit()
+    return {"success": True, "id": user.id, "role": user.role}
+
+
+@app.get("/api/admin/departments")
+async def admin_departments(
+    event_type: Optional[str] = None,
+    current_user: dict = Depends(get_current_staff_user),
+):
+    """处置部门树、常用快捷指派、按事件类型的默认建议"""
+    from departments import DEPARTMENT_TREE, list_quick_presets, suggest_assignment
+
+    return {
+        "tree": DEPARTMENT_TREE,
+        "quick_presets": list_quick_presets(),
+        "suggested": suggest_assignment(event_type) if event_type else None,
+    }
+
+
+@app.get("/api/admin/analytics/completed-tickets")
+async def admin_analytics_completed_tickets(
+    current_user: dict = Depends(get_current_staff_user),
+    db: Session = Depends(get_db),
+):
+    """已结案工单分析（类型/路段/指派部门分布与建议）"""
+    from analytics_completed import build_completed_tickets_analytics
+
+    return build_completed_tickets_analytics(db)
+
+
 # ==================== 新增API：数据管理 ====================
 
 @app.get("/api/admin/data")
 async def get_data_items(
     event_type: Optional[str] = None,
-    current_user: dict = Depends(get_current_admin_user),
+    current_user: dict = Depends(get_current_staff_user),
     db: Session = Depends(get_db)
 ):
     """获取数据项列表（管理端）- 基于举报图片"""
@@ -1335,7 +1478,7 @@ async def get_data_items(
 async def save_data_label(
     data_id: int,
     label: str = Form(...),
-    current_user: dict = Depends(get_current_admin_user),
+    current_user: dict = Depends(get_current_staff_user),
     db: Session = Depends(get_db)
 ):
     """保存数据标签（管理端）"""

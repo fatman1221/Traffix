@@ -12,25 +12,29 @@ import AdminDataManagement from './pages/AdminDataManagement'
 import ChatInterface from './components/ChatInterface'
 import './App.css'
 
-// 受保护的路由组件
-const ProtectedRoute: React.FC<{ children: React.ReactNode; requiredRole?: 'public' | 'admin' }> = ({ 
-  children, 
-  requiredRole 
-}) => {
+// 受保护的路由：staff = 管理员或审核调度员
+const ProtectedRoute: React.FC<{
+  children: React.ReactNode
+  requiredRole?: 'public' | 'admin' | 'staff'
+}> = ({ children, requiredRole }) => {
   const token = localStorage.getItem('token')
   const userStr = localStorage.getItem('user')
-  
+
   if (!token || !userStr) {
     return <Navigate to="/login" replace />
   }
-  
+
   if (requiredRole) {
     const user = JSON.parse(userStr)
-    if (user.role !== requiredRole) {
+    if (requiredRole === 'staff') {
+      if (user.role !== 'admin' && user.role !== 'dispatcher') {
+        return <Navigate to="/login" replace />
+      }
+    } else if (user.role !== requiredRole) {
       return <Navigate to="/login" replace />
     }
   }
-  
+
   return <>{children}</>
 }
 
@@ -47,10 +51,10 @@ function App() {
             </ProtectedRoute>
           } 
         />
-        <Route 
-          path="/admin" 
+        <Route
+          path="/admin"
           element={
-            <ProtectedRoute requiredRole="admin">
+            <ProtectedRoute requiredRole="staff">
               <AdminHome />
             </ProtectedRoute>
           }

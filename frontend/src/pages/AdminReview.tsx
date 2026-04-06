@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { reviewReport, getReports, getReportDetail } from '../api'
+import { uploadPublicUrl } from '../utils/uploadUrl'
 import './AdminReview.css'
 
 interface ReviewItem {
@@ -89,10 +90,7 @@ const AdminReview: React.FC = () => {
     }
   }
 
-  const getImageUrl = (imagePath: string) => {
-    if (imagePath.startsWith('http')) return imagePath
-    return `/api/${imagePath}`
-  }
+  const getImageUrl = (imagePath: string) => uploadPublicUrl(imagePath)
 
   const getStatusText = (status: string) => {
     const statusMap: Record<string, string> = {

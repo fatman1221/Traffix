@@ -204,19 +204,41 @@ export const reviewReport = async (reportId: number, reviewResult: string, revie
   return response.data
 }
 
+export type TicketDeptUpdate = {
+  assignedDepartment?: string
+  assignedUnit?: string
+  departmentCode?: string
+  unitCode?: string
+}
+
 export const updateTicket = async (
   ticketId: number,
   status?: string,
   assignedTo?: number,
   priority?: string,
-  comment?: string
+  comment?: string,
+  dept?: TicketDeptUpdate
 ) => {
   const formData = new FormData()
   if (status) formData.append('status', status)
-  if (assignedTo) formData.append('assigned_to', assignedTo.toString())
+  if (assignedTo !== undefined && assignedTo !== null) {
+    formData.append('assigned_to', String(assignedTo))
+  }
   if (priority) formData.append('priority', priority)
   if (comment) formData.append('comment', comment)
-  
+  if (dept?.assignedDepartment !== undefined) {
+    formData.append('assigned_department', dept.assignedDepartment)
+  }
+  if (dept?.assignedUnit !== undefined) {
+    formData.append('assigned_unit', dept.assignedUnit)
+  }
+  if (dept?.departmentCode !== undefined) {
+    formData.append('department_code', dept.departmentCode)
+  }
+  if (dept?.unitCode !== undefined) {
+    formData.append('unit_code', dept.unitCode)
+  }
+
   const response = await axios.post(`/api/admin/tickets/${ticketId}/update`, formData, {
     headers: {
       'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -256,6 +278,74 @@ export const getUsers = async (role?: string, keyword?: string): Promise<any[]> 
   if (keyword) params.keyword = keyword
   const response = await api.get('/admin/users', { params })
   return response.data
+}
+
+export const createAdminUser = async (payload: {
+  username: string
+  phone: string
+  password: string
+  role: string
+  real_name?: string
+}) => {
+  const fd = new FormData()
+  fd.append('username', payload.username)
+  fd.append('phone', payload.phone)
+  fd.append('password', payload.password)
+  fd.append('role', payload.role)
+  if (payload.real_name) fd.append('real_name', payload.real_name)
+  // 勿用带默认 Content-Type: application/json 的 api 实例提交 FormData，否则易出现 405/422
+  const token = localStorage.getItem('token')
+  const response = await axios.post('/api/admin/users', fd, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  return response.data
+}
+
+export const updateUserRole = async (userId: number, role: string) => {
+  const fd = new FormData()
+  fd.append('role', role)
+  const token = localStorage.getItem('token')
+  const response = await axios.patch(`/api/admin/users/${userId}/role`, fd, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  return response.data
+}
+
+export const getDepartments = async (eventType?: string) => {
+  const params = eventType ? { event_type: eventType } : {}
+  // 不用带默认 Content-Type: application/json 的 api 实例，避免个别环境下 GET 异常
+  const token = localStorage.getItem('token')
+  const response = await axios.get('/api/admin/departments', {
+    params,
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  return response.data as {
+    tree: Array<{ code: string; name: string; children: Array<{ code: string; name: string }> }>
+    quick_presets?: Array<{
+      label: string
+      department_code: string
+      unit_code: string
+      department_name: string
+      unit_name: string
+    }>
+    suggested: null | {
+      department_code: string
+      unit_code: string
+      department_name: string
+      unit_name: string
+    }
+  }
+}
+
+export const getCompletedTicketsAnalytics = async () => {
+  const response = await api.get('/admin/analytics/completed-tickets')
+  return response.data as {
+    total_completed: number
+    by_event_type: Array<{ event_type: string; count: number; ratio: number }>
+    by_location: Array<{ location: string; count: number; ratio: number }>
+    by_department: Array<{ label: string; count: number }>
+    suggestions: string[]
+  }
 }
 
 // ==================== 新增API：数据管理 ====================

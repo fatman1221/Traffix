@@ -189,11 +189,24 @@ async def get_current_public_user(current_user: dict = Depends(get_current_user)
     return current_user
 
 
+STAFF_ROLES = frozenset({"admin", "dispatcher"})
+
+
+async def get_current_staff_user(current_user: dict = Depends(get_current_user)):
+    """管理端：管理员或审核调度员"""
+    if current_user.get("role") not in STAFF_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="需要管理端权限（管理员或审核调度员）",
+        )
+    return current_user
+
+
 async def get_current_admin_user(current_user: dict = Depends(get_current_user)):
-    """获取当前管理员用户（依赖注入）"""
+    """仅系统管理员（用户管理、角色变更等）"""
     if current_user["role"] != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="需要管理员权限"
+            detail="需要管理员权限",
         )
     return current_user

@@ -13,12 +13,16 @@ const AdminHome: React.FC = () => {
     navigate('/login')
   }
 
+  const userStr = typeof localStorage !== 'undefined' ? localStorage.getItem('user') : null
+  const me = userStr ? JSON.parse(userStr) : {}
+  const isAdmin = me?.role === 'admin'
+
   const menuItems: Array<{ path?: string; label?: string; type?: string }> = [
     { path: '/admin/statistics', label: '数据统计' },
     { path: '/admin/review', label: '人工复核' },
     { path: '/admin/tickets', label: '工单管理' },
     { type: 'divider' },
-    { path: '/admin/users', label: '用户管理' },
+    ...(isAdmin ? [{ path: '/admin/users', label: '用户管理' }] : []),
     { path: '/admin/data', label: '数据管理' },
   ]
 

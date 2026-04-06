@@ -11,7 +11,13 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path, // 保持路径不变
-      }
+      },
+      // 与 FastAPI GET /uploads/{filename} 对齐（不走 /api）
+      '/uploads': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+        secure: false,
+      },
     }
   }
 })

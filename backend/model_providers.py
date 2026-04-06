@@ -14,7 +14,7 @@ from dashscope import Generation, MultiModalConversation
 
 # 禁用代理（避免代理连接问题）
 # 设置环境变量，让 requests 和 dashscope 不使用代理
-no_proxy_list = 'dashscope.aliyuncs.com,*.aliyuncs.com,localhost,127.0.0.1'
+no_proxy_list = 'dashscope.aliyuncs.com,*.aliyuncs.com,api.minimax.io,localhost,127.0.0.1'
 os.environ.setdefault('NO_PROXY', no_proxy_list)
 os.environ.setdefault('no_proxy', no_proxy_list)
 
@@ -42,6 +42,7 @@ if original_proxies:
 PROVIDER_ALIYUN = "aliyun"
 PROVIDER_OLLAMA = "ollama"
 PROVIDER_OPENAI = "openai"
+PROVIDER_MINIMAX = "minimax"
 PROVIDER_CUSTOM = "custom"
 
 
@@ -269,6 +270,85 @@ class OpenAIProvider(ModelProvider):
             raise Exception(f"调用 OpenAI 兼容 API 失败: {str(e)}")
 
 
+class MiniMaxProvider(ModelProvider):
+    """
+    MiniMax 官方文本接口（chatcompletion_v2），支持多模态：
+    content 为 [{type:text},{type:image_url}]，图片可为公网 URL 或 data URI。
+    文档: https://api.minimax.io/v1/text/chatcompletion_v2
+    """
+
+    def __init__(self, api_key: str, base_url: str = "https://api.minimax.io"):
+        self.api_key = api_key
+        self.base_url = base_url.rstrip("/")
+        logger.info("MiniMax 已初始化，base_url=%s", self.base_url)
+
+    def _convert_messages(self, messages: List[Dict]) -> List[Dict]:
+        out: List[Dict[str, Any]] = []
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if isinstance(content, str):
+                out.append({"role": role, "content": content})
+                continue
+            if isinstance(content, list):
+                parts: List[Dict[str, Any]] = []
+                for item in content:
+                    if isinstance(item, dict):
+                        if "image" in item:
+                            parts.append(
+                                {
+                                    "type": "image_url",
+                                    "image_url": {"url": item["image"]},
+                                }
+                            )
+                        elif "text" in item:
+                            parts.append({"type": "text", "text": item["text"]})
+                    elif isinstance(item, str):
+                        parts.append({"type": "text", "text": item})
+                out.append({"role": role, "content": parts})
+            else:
+                out.append({"role": role, "content": str(content)})
+        return out
+
+    def call_model(self, messages: List[Dict], model: str, image_path: Optional[str] = None) -> str:
+        url = f"{self.base_url}/v1/text/chatcompletion_v2"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        payload: Dict[str, Any] = {
+            "model": model,
+            "messages": self._convert_messages(messages),
+            "stream": False,
+        }
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=120)
+            response.raise_for_status()
+            data = response.json()
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"调用 MiniMax 失败: {e}") from e
+
+        base = data.get("base_resp") or {}
+        code = base.get("status_code", 0)
+        if code != 0:
+            msg = base.get("status_msg", "")
+            raise Exception(f"MiniMax 接口错误 [{code}]: {msg}")
+
+        choices = data.get("choices") or []
+        if not choices:
+            raise Exception(f"MiniMax 响应缺少 choices: {data!r}")
+
+        message = choices[0].get("message") or {}
+        text = message.get("content")
+        if text is None or (isinstance(text, str) and not text.strip()):
+            alt = message.get("reasoning_content")
+            if isinstance(alt, str) and alt.strip():
+                text = alt
+        if text is None:
+            raise Exception(f"MiniMax 返回空内容: {data!r}")
+        return str(text)
+
+
 def create_provider() -> ModelProvider:
     """根据配置创建模型提供者"""
     provider_type = os.getenv("MODEL_PROVIDER", PROVIDER_ALIYUN).lower()
@@ -287,6 +367,13 @@ def create_provider() -> ModelProvider:
         base_url = os.getenv("OPENAI_BASE_URL", "http://localhost:8000/v1")
         api_key = os.getenv("OPENAI_API_KEY", "")
         return OpenAIProvider(base_url, api_key)
+
+    elif provider_type == PROVIDER_MINIMAX:
+        api_key = os.getenv("MINIMAX_API_KEY", "")
+        if not api_key:
+            raise ValueError("MINIMAX_API_KEY 未设置")
+        base_url = os.getenv("MINIMAX_BASE_URL", "https://api.minimax.io")
+        return MiniMaxProvider(api_key, base_url)
     
     else:
         raise ValueError(f"不支持的模型提供者类型: {provider_type}")

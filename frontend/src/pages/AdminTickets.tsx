@@ -135,6 +135,7 @@ const AdminTickets: React.FC = () => {
               <th>工单号</th>
               <th>事件类型</th>
               <th>地点</th>
+              <th>指派部门</th>
               <th>状态</th>
               <th>优先级</th>
               <th>创建时间</th>
@@ -144,7 +145,7 @@ const AdminTickets: React.FC = () => {
           <tbody>
             {tickets.length === 0 ? (
               <tr>
-                <td colSpan={7} className="empty-cell">
+                <td colSpan={8} className="empty-cell">
                   暂无工单
                 </td>
               </tr>
@@ -154,6 +155,11 @@ const AdminTickets: React.FC = () => {
                   <td>#{ticket.ticket_no}</td>
                   <td>{ticket.event_type || '-'}</td>
                   <td>{ticket.location || '-'}</td>
+                  <td className="dept-cell">
+                    {ticket.assigned_department
+                      ? `${ticket.assigned_department}${ticket.assigned_unit ? ` / ${ticket.assigned_unit}` : ''}`
+                      : '-'}
+                  </td>
                   <td>
                     <span className={`status ${getStatusClass(ticket.status)}`}>
                       {getStatusText(ticket.status)}

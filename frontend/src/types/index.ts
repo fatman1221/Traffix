@@ -19,7 +19,7 @@ export interface User {
   id: number
   username: string
   phone: string
-  role: 'public' | 'admin'
+  role: 'public' | 'admin' | 'dispatcher'
   real_name?: string
 }
 
@@ -44,6 +44,10 @@ export interface Ticket {
   status: 'pending' | 'assigned' | 'processing' | 'resolved' | 'closed'
   priority: 'low' | 'medium' | 'high' | 'urgent'
   assigned_to?: number
+  assigned_department?: string | null
+  assigned_unit?: string | null
+  department_code?: string | null
+  unit_code?: string | null
   images: string[]
   created_at: string
   updated_at: string

@@ -78,8 +78,8 @@
 }
 
 .images-grid img {
-  width: 200px;
-  height: 200px;
+  width: 112px;
+  height: 112px;
   object-fit: cover;
   border-radius: 4px;
   border: 1px solid #ddd;
@@ -137,6 +137,96 @@
   padding: 60px 20px;
   color: #999;
   font-size: 16px;
+}
+
+.dept-hint {
+  font-size: 13px;
+  color: #666;
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+.dept-warn {
+  font-size: 13px;
+  color: #c62828;
+  background: #ffebee;
+  padding: 10px 12px;
+  border-radius: 6px;
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+.dept-select {
+  position: relative;
+  z-index: 2;
+  cursor: pointer;
+  background: white;
+  min-height: 40px;
+}
+
+.dept-quick {
+  margin-bottom: 14px;
+}
+
+.dept-quick-label {
+  display: block;
+  font-size: 13px;
+  color: #555;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.dept-quick-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dept-chip {
+  padding: 6px 12px;
+  font-size: 12px;
+  border: 1px solid #c5cae9;
+  background: #f3f4fd;
+  color: #3949ab;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.dept-chip:hover {
+  background: #e8eaf6;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.dept-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.dept-row select {
+  flex: 1;
+  min-width: 200px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.suggest-dept-btn {
+  padding: 8px 12px;
+  font-size: 13px;
+  border: 1px solid var(--color-primary);
+  background: white;
+  color: var(--color-primary);
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.suggest-dept-btn:hover {
+  background: var(--color-primary-soft);
 }
 
 /* 管理员模块保持桌面端布局，不进行移动端适配 */

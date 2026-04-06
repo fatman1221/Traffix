@@ -22,7 +22,7 @@ const Login: React.FC = () => {
       if (isLogin) {
         await login(username, password)
         const user = JSON.parse(localStorage.getItem('user') || '{}')
-        if (user.role === 'admin') {
+        if (user.role === 'admin' || user.role === 'dispatcher') {
           navigate('/admin')
         } else {
           navigate('/public')
