@@ -148,6 +148,33 @@ const AdminDataManagement: React.FC = () => {
                 </section>
 
                 <section className="analytics-card">
+                  <h3>违规类型细分</h3>
+                  <p className="card-desc">基于工单类型与描述识别具体违规类别</p>
+                  {analytics.by_violation_category.length === 0 ? (
+                    <p className="muted">暂无数据</p>
+                  ) : (
+                    <table className="analytics-table">
+                      <thead>
+                        <tr>
+                          <th>违规类别</th>
+                          <th>件数</th>
+                          <th>占比</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {analytics.by_violation_category.map((row) => (
+                          <tr key={row.category}>
+                            <td>{row.category}</td>
+                            <td>{row.count}</td>
+                            <td>{(row.ratio * 100).toFixed(1)}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </section>
+
+                <section className="analytics-card">
                   <h3>高发路段 TOP</h3>
                   <p className="card-desc">按上报地点聚合，辅助识别事故多发段</p>
                   {analytics.by_location.length === 0 ? (
@@ -163,6 +190,33 @@ const AdminDataManagement: React.FC = () => {
                       </thead>
                       <tbody>
                         {analytics.by_location.map((row) => (
+                          <tr key={row.location}>
+                            <td className="loc-cell">{row.location}</td>
+                            <td>{row.count}</td>
+                            <td>{(row.ratio * 100).toFixed(1)}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </section>
+
+                <section className="analytics-card">
+                  <h3>事故高发路段</h3>
+                  <p className="card-desc">筛选事故类工单，聚焦重点路段</p>
+                  {analytics.accident_hotspots.length === 0 ? (
+                    <p className="muted">暂无事故高发数据</p>
+                  ) : (
+                    <table className="analytics-table">
+                      <thead>
+                        <tr>
+                          <th>路段/位置</th>
+                          <th>事故件数</th>
+                          <th>占比</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {analytics.accident_hotspots.map((row) => (
                           <tr key={row.location}>
                             <td className="loc-cell">{row.location}</td>
                             <td>{row.count}</td>

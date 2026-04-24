@@ -342,7 +342,9 @@ export const getCompletedTicketsAnalytics = async () => {
   return response.data as {
     total_completed: number
     by_event_type: Array<{ event_type: string; count: number; ratio: number }>
+    by_violation_category: Array<{ category: string; count: number; ratio: number }>
     by_location: Array<{ location: string; count: number; ratio: number }>
+    accident_hotspots: Array<{ location: string; count: number; ratio: number }>
     by_department: Array<{ label: string; count: number }>
     suggestions: string[]
   }
