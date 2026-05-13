@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-基于多模态大模型的道路状况综合识别系统 - 后端API
+基于多模态大模型的学校后勤事件协同平台 - 后端API
 """
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,6 +24,7 @@ from auth import (
     get_current_staff_user,
 )
 from event_recognition import recognize_event_with_model, auto_review_report
+from local_yolo_detector import has_local_models, recognize_with_local_pt
 from object_storage import (
     init_storage,
     save_upload,
@@ -69,6 +70,15 @@ DATABASE_URL = os.getenv(
 MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "aliyun").lower()  # aliyun, ollama, openai, minimax
 _default_model = "MiniMax-M2.7" if MODEL_PROVIDER == "minimax" else "qwen-vl-plus"
 MODEL_NAME = os.getenv("MODEL_NAME", _default_model)
+USE_LOCAL_PT = os.getenv("USE_LOCAL_PT", "true").lower() in ("1", "true", "yes", "on")
+_local_pt_model_dir = Path(os.getenv("LOCAL_PT_MODEL_DIR", str(BASE_DIR)))
+LOCAL_PT_MODEL_DIR = _local_pt_model_dir if _local_pt_model_dir.is_absolute() else BASE_DIR / _local_pt_model_dir
+LOCAL_PT_MODEL_FILES = [
+    item.strip()
+    for item in os.getenv("LOCAL_PT_MODEL_FILES", "paosawu.pt,weiting.pt,jiaotongshigu.pt,kengwa.pt").split(",")
+    if item.strip()
+]
+LOCAL_PT_CONF = float(os.getenv("LOCAL_PT_CONF", "0.25"))
 
 # 初始化模型提供者
 model_provider = None
@@ -378,6 +388,38 @@ def call_model(user_content: str, image_path: Optional[str] = None, history: lis
         raise Exception(f"调用大模型时出错: {str(e)}")
 
 
+def recognize_uploaded_image(image_bytes: bytes, image_base64: str, question: str) -> dict:
+    """Prefer local .pt models, then fall back to the configured multimodal provider."""
+    if USE_LOCAL_PT and has_local_models(LOCAL_PT_MODEL_DIR, LOCAL_PT_MODEL_FILES):
+        local_result = recognize_with_local_pt(
+            image_bytes,
+            model_dir=LOCAL_PT_MODEL_DIR,
+            model_files=LOCAL_PT_MODEL_FILES,
+            conf_threshold=LOCAL_PT_CONF,
+        )
+        if local_result.get("success"):
+            local_result["question"] = question
+            return local_result
+        logger.warning("Local .pt recognition failed: %s", local_result.get("error"))
+
+    if not model_provider:
+        return {
+            "success": False,
+            "error": "模型服务未初始化，且本地 .pt 模型不可用",
+            "answer": "",
+            "structured_data": {},
+            "event_type": None,
+            "confidence": 0.0,
+        }
+
+    return recognize_event_with_model(
+        model_provider=model_provider,
+        image_path=image_base64,
+        question=question,
+        model_name=MODEL_NAME,
+    )
+
+
 # API 路由
 @app.get("/uploads/{filename}")
 def serve_upload_file(filename: str):
@@ -680,69 +722,63 @@ async def create_report(
             _, mime_type = suffix_and_mime(image_urls[0])
             image_base64 = f"data:{mime_type};base64,{image_data}"
             
-            # 调用模型识别
-            if model_provider:
-                question = "图中公路上有没有抛洒物？如果有，请描述位置和类型。如果没有，请描述图中是否有其他交通异常情况。"
-                recognition_result = recognize_event_with_model(
-                    model_provider=model_provider,
-                    image_path=image_base64,
-                    question=question,
-                    model_name=MODEL_NAME
-                )
-                
-                # 保存识别结果
-                model_result = ModelRecognitionResult(
+            # 调用模型识别：优先使用本地 .pt，失败时回退到配置的大模型
+            question = "图中是否存在校园交通与停车问题（如违停、拥堵、消防通道占用、标识损坏）？请描述位置、类型和风险程度。"
+            recognition_result = recognize_uploaded_image(first_raw, image_base64, question)
+            
+            # 保存识别结果
+            model_result = ModelRecognitionResult(
+                report_id=report.id,
+                image_url=image_urls[0],
+                question=question,
+                answer=recognition_result.get("answer", ""),
+                event_type_detected=recognition_result.get("event_type"),
+                confidence=float(recognition_result.get("confidence", 0.0)),
+                structured_data=recognition_result.get("structured_data", {})
+            )
+            db.add(model_result)
+            
+            # 智能初审
+            user_selected_types = [event_type] if event_type else []
+            review_result, review_comment, confidence = auto_review_report(
+                user_selected_types=user_selected_types,
+                model_result=recognition_result
+            )
+            
+            # 更新举报状态
+            if review_result == "approved":
+                report.status = "auto_approved"
+            elif review_result == "rejected":
+                report.status = "auto_rejected"
+            else:
+                report.status = "manual_review"
+            
+            report.auto_review_result = review_result
+            report.auto_review_confidence = float(confidence)
+            
+            # 保存审核记录
+            review_record = ReviewRecord(
+                report_id=report.id,
+                reviewer_id=current_user["user_id"],  # 系统自动审核
+                review_type="auto",
+                review_result=review_result,
+                review_comment=review_comment
+            )
+            db.add(review_record)
+            
+            # 如果自动通过，创建工单
+            if review_result == "approved":
+                ticket_no = f"T{datetime.now().strftime('%Y%m%d%H%M%S')}{report.id:06d}"
+                ticket = Ticket(
                     report_id=report.id,
-                    image_url=image_urls[0],
-                    question=question,
-                    answer=recognition_result.get("answer", ""),
-                    event_type_detected=recognition_result.get("event_type"),
-                    confidence=float(recognition_result.get("confidence", 0.0)),
-                    structured_data=recognition_result.get("structured_data", {})
+                    ticket_no=ticket_no,
+                    event_type=recognition_result.get("event_type") or event_type,
+                    location=location or recognition_result.get("structured_data", {}).get("location"),
+                    description=description or recognition_result.get("answer", ""),
+                    status="pending",
+                    priority="medium"
                 )
-                db.add(model_result)
-                
-                # 智能初审
-                user_selected_types = [event_type] if event_type else []
-                review_result, review_comment, confidence = auto_review_report(
-                    user_selected_types=user_selected_types,
-                    model_result=recognition_result
-                )
-                
-                # 更新举报状态
-                if review_result == "approved":
-                    report.status = "auto_approved"
-                elif review_result == "rejected":
-                    report.status = "auto_rejected"
-                else:
-                    report.status = "manual_review"
-                
-                report.auto_review_result = review_result
-                report.auto_review_confidence = float(confidence)
-                
-                # 保存审核记录
-                review_record = ReviewRecord(
-                    report_id=report.id,
-                    reviewer_id=current_user["user_id"],  # 系统自动审核
-                    review_type="auto",
-                    review_result=review_result,
-                    review_comment=review_comment
-                )
-                db.add(review_record)
-                
-                # 如果自动通过，创建工单
-                if review_result == "approved":
-                    ticket_no = f"T{datetime.now().strftime('%Y%m%d%H%M%S')}{report.id:06d}"
-                    ticket = Ticket(
-                        report_id=report.id,
-                        ticket_no=ticket_no,
-                        event_type=recognition_result.get("event_type") or event_type,
-                        location=location or recognition_result.get("structured_data", {}).get("location"),
-                        description=description or recognition_result.get("answer", ""),
-                        status="pending",
-                        priority="medium"
-                    )
-                    db.add(ticket)
+                db.add(ticket)
         except Exception as e:
             logger.error(f"模型识别失败: {str(e)}", exc_info=True)
             # 识别失败不影响举报创建，但需要人工复核
@@ -803,21 +839,18 @@ async def recognize_image(
     _, mime_type = suffix_and_mime(stored)
     image_base64 = f"data:{mime_type};base64,{image_data}"
     
-    if not model_provider:
-        raise HTTPException(status_code=503, detail="模型服务未初始化")
-    
     # 如果没有指定问题，使用默认问题
     if not question:
-        question = "图中公路上有没有抛洒物？如果有，请描述位置和类型。如果没有，请描述图中是否有其他交通异常情况。"
+        question = "图中是否存在校园交通与停车问题（如违停、拥堵、消防通道占用、标识损坏）？请描述位置、类型和风险程度。"
     
-    # 调用模型识别
+    # 调用模型识别：优先使用本地 .pt，失败时回退到配置的大模型
     try:
-        recognition_result = recognize_event_with_model(
-            model_provider=model_provider,
-            image_path=image_base64,
-            question=question,
-            model_name=MODEL_NAME
-        )
+        recognition_result = recognize_uploaded_image(content_data, image_base64, question)
+        if not recognition_result.get("success"):
+            raise HTTPException(
+                status_code=503,
+                detail=recognition_result.get("error", "模型服务未初始化"),
+            )
         
         return {
             "success": recognition_result.get("success", False),
@@ -828,6 +861,8 @@ async def recognize_image(
             "confidence": float(recognition_result.get("confidence", 0.0)),
             "image_url": public_upload_url_path(stored)
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"识别失败: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"识别失败: {str(e)}")
@@ -1424,7 +1459,7 @@ async def admin_analytics_completed_tickets(
     current_user: dict = Depends(get_current_staff_user),
     db: Session = Depends(get_db),
 ):
-    """已结案工单分析（类型/路段/指派部门分布与建议）"""
+    """已结案工单分析（类型/校内位置/指派部门分布与建议）"""
     from analytics_completed import build_completed_tickets_analytics
 
     return build_completed_tickets_analytics(db)
@@ -1455,7 +1490,10 @@ async def get_data_items(
             first_result = report.recognition_results[0]
             recognition_result = {
                 "event_type": first_result.event_type_detected,
-                "confidence": float(first_result.confidence) if first_result.confidence else None
+                "confidence": float(first_result.confidence) if first_result.confidence else None,
+                "answer": first_result.answer,
+                "structured_data": first_result.structured_data,
+                "created_at": first_result.created_at.isoformat()
             }
         
         confidence_value = None
@@ -1464,10 +1502,15 @@ async def get_data_items(
         
         result.append({
             "id": img.id,
+            "report_id": report.id if report else None,
             "image_url": img.image_url,
             "event_type": report.event_type if report else None,
             "label": report.event_type if report else None,  # 使用举报的事件类型作为标签
             "confidence": confidence_value,
+            "model_event_type": recognition_result.get("event_type") if recognition_result else None,
+            "model_answer": recognition_result.get("answer") if recognition_result else None,
+            "model_structured_data": recognition_result.get("structured_data") if recognition_result else None,
+            "model_created_at": recognition_result.get("created_at") if recognition_result else None,
             "created_at": img.created_at.isoformat()
         })
     
@@ -1498,4 +1541,3 @@ async def save_data_label(
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-

@@ -71,8 +71,15 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, disabled }) 
           id="image-input"
           disabled={disabled}
         />
-        <label htmlFor="image-input" className="image-button" title="上传图片">
-          📷
+        <label
+          htmlFor="image-input"
+          className="image-button attach-add"
+          title="添加图片"
+          aria-label="添加图片"
+        >
+          <span className="attach-add-icon" aria-hidden>
+            +
+          </span>
         </label>
         
         <textarea

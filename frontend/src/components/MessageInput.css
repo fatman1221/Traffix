@@ -2,6 +2,7 @@
   background: white;
   border-top: 1px solid #e0e0e0;
   padding: 15px 20px;
+  flex-shrink: 0;
 }
 
 .image-preview {
@@ -64,9 +65,21 @@
   color: var(--color-primary);
   border-radius: 10px;
   cursor: pointer;
-  font-size: 20px;
   transition: all 0.2s;
   flex-shrink: 0;
+}
+
+.attach-add {
+  border-radius: 50%;
+}
+
+.attach-add-icon {
+  display: block;
+  font-size: 26px;
+  font-weight: 300;
+  line-height: 1;
+  margin-top: -2px;
+  letter-spacing: 0;
 }
 
 .image-button:hover {
@@ -115,7 +128,7 @@
 .send-button:hover:not(:disabled) {
   background: var(--color-primary-hover);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.35);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
 .send-button:disabled {
@@ -123,30 +136,78 @@
   cursor: not-allowed;
 }
 
-/* 移动端适配 */
+/* 移动端：底部输入条 + 圆角胶囊 +「+」添加图片 */
 @media (max-width: 768px) {
   .message-input-container {
-    padding: 12px 15px;
+    padding: 10px 12px 12px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+    border-top: none;
+    background: #fafafa;
+    box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.06);
   }
 
   .message-input-form {
-    gap: 8px;
+    gap: 0;
+    align-items: center;
+    background: #fff;
+    border-radius: 22px;
+    padding: 6px 6px 6px 8px;
+    border: 1px solid #e8e8ea;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
   }
 
   .image-button {
-    width: 36px;
-    height: 36px;
-    font-size: 18px;
+    width: 40px;
+    height: 40px;
+    align-self: center;
+    background: #fff;
+    border: 1px solid #e5e5e8;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  }
+
+  .image-button:active {
+    transform: scale(0.96);
+    background: var(--color-primary-soft);
+  }
+
+  .attach-add-icon {
+    font-size: 28px;
+    font-weight: 200;
+    margin-top: -3px;
   }
 
   .message-textarea {
-    padding: 10px 14px;
-    font-size: 14px;
+    padding: 10px 10px;
+    font-size: 15px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    min-height: 40px;
+    max-height: 100px;
+    line-height: 1.4;
+  }
+
+  .message-textarea:focus {
+    border: none;
+    box-shadow: none;
   }
 
   .send-button {
-    padding: 10px 20px;
-    font-size: 13px;
+    align-self: center;
+    padding: 10px 18px;
+    font-size: 14px;
+    border-radius: 18px;
+    margin-left: 4px;
+    transform: none;
+  }
+
+  .send-button:hover:not(:disabled) {
+    transform: none;
+  }
+
+  .send-button:active:not(:disabled) {
+    opacity: 0.92;
   }
 }
 

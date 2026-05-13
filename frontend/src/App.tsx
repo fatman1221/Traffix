@@ -9,6 +9,7 @@ import AdminTickets from './pages/AdminTickets'
 import AdminTicketDetail from './pages/AdminTicketDetail'
 import AdminUsers from './pages/AdminUsers'
 import AdminDataManagement from './pages/AdminDataManagement'
+import DispatchHome from './pages/DispatchHome'
 import ChatInterface from './components/ChatInterface'
 import './App.css'
 
@@ -67,7 +68,30 @@ function App() {
           <Route path="users" element={<AdminUsers />} />
           <Route path="data" element={<AdminDataManagement />} />
         </Route>
-        <Route path="/chat" element={<ChatInterface />} />
+        <Route
+          path="/dispatch"
+          element={
+            <ProtectedRoute requiredRole="staff">
+              <DispatchHome />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Navigate to="/dispatch/statistics" replace />} />
+          <Route path="statistics" element={<AdminStatistics />} />
+          <Route path="review" element={<AdminReview />} />
+          <Route path="tickets" element={<AdminTickets />} />
+          <Route path="tickets/:ticketId" element={<AdminTicketDetail />} />
+        </Route>
+        <Route
+          path="/chat"
+          element={
+            <ChatInterface
+              notifications={[]}
+              onAddNotification={() => {}}
+              onMarkNotificationsAsRead={() => {}}
+            />
+          }
+        />
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>

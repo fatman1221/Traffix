@@ -24,7 +24,7 @@ const AdminUsers: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [filterRole, setFilterRole] = useState<string>('')
   const [searchKeyword, setSearchKeyword] = useState('')
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [showCreate, setShowCreate] = useState(false)
   const [createForm, setCreateForm] = useState({
     username: '',
@@ -34,6 +34,7 @@ const AdminUsers: React.FC = () => {
     real_name: '',
   })
   const [creating, setCreating] = useState(false)
+  const [showCreateSuccess, setShowCreateSuccess] = useState(false)
 
   useEffect(() => {
     const u = JSON.parse(localStorage.getItem('user') || '{}')
@@ -93,7 +94,7 @@ const AdminUsers: React.FC = () => {
         real_name: '',
       })
       loadUsers()
-      alert('创建成功')
+      setShowCreateSuccess(true)
     } catch (err: any) {
       alert(err.response?.data?.detail || '创建失败')
     } finally {
@@ -231,6 +232,19 @@ const AdminUsers: React.FC = () => {
       <div className="users-footer">
         <div className="users-count">共 {users.length} 个用户</div>
       </div>
+
+      {showCreateSuccess && (
+        <div className="modal-overlay" onClick={() => setShowCreateSuccess(false)}>
+          <div className="modal-panel success-dialog" onClick={(e) => e.stopPropagation()}>
+            <p className="success-dialog-text">创建成功</p>
+            <div className="modal-actions success-dialog-actions">
+              <button type="button" className="btn-primary" onClick={() => setShowCreateSuccess(false)}>
+                确定
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showCreate && (
         <div className="modal-overlay" onClick={() => !creating && setShowCreate(false)}>

@@ -22,7 +22,9 @@ const Login: React.FC = () => {
       if (isLogin) {
         await login(username, password)
         const user = JSON.parse(localStorage.getItem('user') || '{}')
-        if (user.role === 'admin' || user.role === 'dispatcher') {
+        if (user.role === 'dispatcher') {
+          navigate('/dispatch')
+        } else if (user.role === 'admin') {
           navigate('/admin')
         } else {
           navigate('/public')
@@ -46,7 +48,7 @@ const Login: React.FC = () => {
   return (
     <div className="login-container">
       <div className="login-box">
-        <h1>交通事件感知系统</h1>
+        <h1>学校后勤事件平台</h1>
         <div className="login-tabs">
           <button
             className={isLogin ? 'active' : ''}
@@ -117,7 +119,7 @@ const Login: React.FC = () => {
         </form>
 
         <div className="login-footer">
-          <p>提示：管理员账户请联系系统管理员获取</p>
+          <p>提示：调度与管理员账号由信息化中心统一开通</p>
         </div>
       </div>
     </div>

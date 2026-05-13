@@ -74,7 +74,7 @@ const AdminTickets: React.FC = () => {
   return (
     <div className="admin-tickets-container">
       <div className="tickets-header">
-        <h1>工单管理</h1>
+        <h1>调度工单中心</h1>
         <div className="tickets-count">
           共 {pagination.total} 条
         </div>
@@ -97,7 +97,7 @@ const AdminTickets: React.FC = () => {
             setPagination(prev => ({ ...prev, page: 1 }))
           }}
         >
-          待处理
+          待受理
         </button>
         <button
           className={filterStatus === 'processing' ? 'active' : ''}
@@ -106,7 +106,7 @@ const AdminTickets: React.FC = () => {
             setPagination(prev => ({ ...prev, page: 1 }))
           }}
         >
-          处理中
+          处置中
         </button>
         <button
           className={filterStatus === 'resolved' ? 'active' : ''}
@@ -115,7 +115,7 @@ const AdminTickets: React.FC = () => {
             setPagination(prev => ({ ...prev, page: 1 }))
           }}
         >
-          已解决
+          待验收
         </button>
         <button
           className={filterStatus === 'closed' ? 'active' : ''}

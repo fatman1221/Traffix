@@ -28,10 +28,89 @@ function readLngLat(loc: any): { lng: number; lat: number } | null {
   return null
 }
 
+const CAMPUS_POLYGON: Array<[number, number]> = [
+  [113.113631, 27.813986],
+  [113.095967, 27.813876],
+  [113.09585, 27.825669],
+  [113.113866, 27.825722],
+]
+
+const CAMPUS_BOUNDS = {
+  west: Math.min(...CAMPUS_POLYGON.map(([lng]) => lng)),
+  east: Math.max(...CAMPUS_POLYGON.map(([lng]) => lng)),
+  south: Math.min(...CAMPUS_POLYGON.map(([, lat]) => lat)),
+  north: Math.max(...CAMPUS_POLYGON.map(([, lat]) => lat)),
+}
+
+const CAMPUS_CENTER: [number, number] = [
+  (CAMPUS_BOUNDS.west + CAMPUS_BOUNDS.east) / 2,
+  (CAMPUS_BOUNDS.south + CAMPUS_BOUNDS.north) / 2,
+]
+
+function isInCampusBounds(lng: number, lat: number) {
+  return (
+    lng >= CAMPUS_BOUNDS.west &&
+    lng <= CAMPUS_BOUNDS.east &&
+    lat >= CAMPUS_BOUNDS.south &&
+    lat <= CAMPUS_BOUNDS.north
+  )
+}
+
+function buildReadableAddress(result: any, fallback: string) {
+  const regeocode = result?.regeocode
+  if (!regeocode) return fallback
+
+  const component = regeocode.addressComponent || {}
+  const road = regeocode.roads?.[0]?.name || ''
+  const poi = regeocode.pois?.[0]?.name || ''
+  const township = component.township || ''
+  const district = component.district || ''
+  const formatted = regeocode.formattedAddress || ''
+
+  if (road && poi) return `${road}附近（${poi}）`
+  if (road) return `${road}附近`
+  if (poi) return `湖南工业大学附近（${poi}）`
+  if (formatted) return formatted
+  return [district, township, '湖南工业大学校内位置'].filter(Boolean).join('') || fallback
+}
+
+function resolveAddress(amap: any, lng: number, lat: number, fallback: string, done: (address: string) => void) {
+  const requestAddress = () => {
+    if (!window.AMap?.Geocoder) {
+      done(fallback)
+      return
+    }
+
+    try {
+      const geocoder = new window.AMap.Geocoder({
+        city: '株洲',
+        radius: 1000,
+        extensions: 'all',
+      })
+      geocoder.getAddress([lng, lat], (status: string, result: any) => {
+        const addr =
+          status === 'complete' && result?.info === 'OK'
+            ? buildReadableAddress(result, fallback)
+            : fallback
+        done(addr)
+      })
+    } catch {
+      done(fallback)
+    }
+  }
+
+  try {
+    amap.plugin('AMap.Geocoder', requestAddress)
+  } catch {
+    requestAddress()
+  }
+}
+
 const MapPicker: React.FC<MapPickerProps> = ({ onLocationSelect, initialLocation }) => {
   const mapContainer = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
   const markerRef = useRef<any>(null)
+  const initialLocationRef = useRef(initialLocation)
   const [address, setAddress] = useState(initialLocation?.address || '')
   const [isMapLoaded, setIsMapLoaded] = useState(false)
   const [error, setError] = useState('')
@@ -62,7 +141,7 @@ const MapPicker: React.FC<MapPickerProps> = ({ onLocationSelect, initialLocation
     AMapLoader.load({
       key: apiKey,
       version: '2.0',
-      plugins: ['AMap.PlaceSearch'],
+      plugins: ['AMap.PlaceSearch', 'AMap.Geocoder', 'AMap.Geolocation'],
     })
       .then(() => {
         if (cancelled) return
@@ -90,32 +169,40 @@ const MapPicker: React.FC<MapPickerProps> = ({ onLocationSelect, initialLocation
     if (!isMapLoaded || !mapContainer.current || !window.AMap) return
 
     try {
+      const startLocation = initialLocationRef.current
       const amap = new window.AMap.Map(mapContainer.current, {
-        zoom: 13,
+        zoom: 16,
         viewMode: '2D',
         pitch: 0,
-        center: initialLocation
-          ? [initialLocation.lng, initialLocation.lat]
-          : [116.397428, 39.90923],
+        center: startLocation
+          ? [startLocation.lng, startLocation.lat]
+          : CAMPUS_CENTER,
         mapStyle: 'amap://styles/normal',
       })
 
       mapRef.current = amap
 
-      // 添加初始标记
-      if (initialLocation) {
-        const initialMarker = new window.AMap.Marker({
-          position: [initialLocation.lng, initialLocation.lat],
-          map: amap
-        })
-        markerRef.current = initialMarker
-        setAddress(initialLocation.address)
+      if (window.AMap.Bounds) {
+        const limitBounds = new window.AMap.Bounds(
+          [CAMPUS_BOUNDS.west, CAMPUS_BOUNDS.south],
+          [CAMPUS_BOUNDS.east, CAMPUS_BOUNDS.north]
+        )
+        amap.setLimitBounds(limitBounds)
       }
 
-      // 地图点击事件
-      amap.on('click', (e: any) => {
-        const { lng, lat } = e.lnglat
+      const campusOverlay = new window.AMap.Polygon({
+        path: CAMPUS_POLYGON,
+        strokeColor: '#0f766e',
+        strokeOpacity: 0.9,
+        strokeWeight: 2,
+        fillColor: '#0f766e',
+        fillOpacity: 0.08,
+        bubble: true,
+      })
+      amap.add(campusOverlay)
+      amap.setFitView([campusOverlay], false, [28, 28, 28, 28])
 
+      const setMarker = (lng: number, lat: number) => {
         if (markerRef.current) {
           markerRef.current.setMap(null)
         }
@@ -125,85 +212,40 @@ const MapPicker: React.FC<MapPickerProps> = ({ onLocationSelect, initialLocation
           map: amap
         })
         markerRef.current = newMarker
+      }
 
-        // 直接使用坐标作为地址（简化处理，避免API调用问题）
-        const coordAddr = `经度: ${lng.toFixed(6)}, 纬度: ${lat.toFixed(6)}`
-        setAddress(coordAddr)
-        onLocationSelect({
-          address: coordAddr,
-          lng,
-          lat
+      const selectLocation = (lng: number, lat: number, fallbackName?: string) => {
+        if (!isInCampusBounds(lng, lat)) {
+          setSearchHint('请选择湖南工业大学校区范围内的位置')
+          return
+        }
+
+        setMarker(lng, lat)
+        setSearchHint('')
+
+        const fallbackAddr = fallbackName || '湖南工业大学校内位置'
+        setAddress('正在解析中文地址...')
+        onLocationSelect({ address: fallbackAddr, lng, lat })
+
+        resolveAddress(amap, lng, lat, fallbackAddr, (addr) => {
+          setAddress(addr)
+          onLocationSelect({ address: addr, lng, lat })
         })
-        
-        // 尝试获取地址（如果API Key支持，异步处理，不阻塞）
-        setTimeout(() => {
-          try {
-            if (window.AMap && window.AMap.Geocoder) {
-              amap.plugin('AMap.Geocoder', () => {
-                try {
-                  const geocoder = new window.AMap.Geocoder({
-                    city: '全国'
-                  })
-                  geocoder.getAddress([lng, lat], (status: string, result: any) => {
-                    if (status === 'complete' && result && result.info === 'OK') {
-                      const addr = result.regeocode?.formattedAddress || coordAddr
-                      setAddress(addr)
-                      onLocationSelect({
-                        address: addr,
-                        lng,
-                        lat
-                      })
-                    }
-                  })
-                } catch (err) {
-                  // 静默失败，使用坐标
-                  console.log('逆地理编码失败，使用坐标')
-                }
-              })
-            }
-          } catch (err) {
-            // 静默失败
-            console.log('逆地理编码不可用')
-          }
-        }, 100)
+      }
+
+      // 地图点击事件
+      amap.on('click', (e: any) => {
+        const pos = readLngLat(e.lnglat)
+        if (pos) {
+          selectLocation(pos.lng, pos.lat)
+        }
       })
 
-      // 定位到当前位置（可选功能，静默失败）
-      setTimeout(() => {
-        try {
-          if (window.AMap && window.AMap.Geolocation) {
-            amap.plugin('AMap.Geolocation', () => {
-              try {
-                const geolocation = new window.AMap.Geolocation({
-                  enableHighAccuracy: true,
-                  timeout: 10000,
-                  maximumAge: 0,
-                  convert: true,
-                  showButton: true,
-                  buttonPosition: 'LB',
-                  showMarker: true,
-                  showCircle: true,
-                  panToLocation: true,
-                  zoomToAccuracy: true
-                })
-
-                amap.addControl(geolocation)
-
-                geolocation.getCurrentPosition((status: string, result: any) => {
-                  if (status === 'complete' && result && result.position) {
-                    const { lng, lat } = result.position
-                    amap.setCenter([lng, lat])
-                  }
-                })
-              } catch (err) {
-                console.log('定位功能初始化失败')
-              }
-            })
-          }
-        } catch (err) {
-          console.log('定位功能不可用')
-        }
-      }, 200)
+      // 添加初始标记
+      if (startLocation && isInCampusBounds(startLocation.lng, startLocation.lat)) {
+        setMarker(startLocation.lng, startLocation.lat)
+        setAddress(startLocation.address)
+      }
 
       return () => {
         markerRef.current = null
@@ -216,7 +258,7 @@ const MapPicker: React.FC<MapPickerProps> = ({ onLocationSelect, initialLocation
       console.error('地图初始化失败:', err)
       setError('地图初始化失败，请刷新页面重试')
     }
-  }, [isMapLoaded, initialLocation])
+  }, [isMapLoaded])
 
   const runPlaceSearch = (keyword: string) => {
     const q = keyword.trim()
@@ -243,6 +285,10 @@ const MapPicker: React.FC<MapPickerProps> = ({ onLocationSelect, initialLocation
         return
       }
       const { lng, lat } = pos
+      if (!isInCampusBounds(lng, lat)) {
+        done('搜索结果不在湖南工业大学校区范围内，请换一个校内地点')
+        return
+      }
       if (markerRef.current) {
         markerRef.current.setMap(null)
       }
@@ -264,8 +310,8 @@ const MapPicker: React.FC<MapPickerProps> = ({ onLocationSelect, initialLocation
         const PlaceSearch = window.AMap.PlaceSearch
         if (PlaceSearch) {
           const ps = new PlaceSearch({
-            city: '全国',
-            citylimit: false,
+            city: '株洲',
+            citylimit: true,
             pageSize: 10,
           })
           ps.search(q, (status: string, result: any) => {
@@ -283,8 +329,8 @@ const MapPicker: React.FC<MapPickerProps> = ({ onLocationSelect, initialLocation
       amap.plugin('AMap.PlaceSearch', () => {
         try {
           const ps = new window.AMap.PlaceSearch({
-            city: '全国',
-            citylimit: false,
+            city: '株洲',
+            citylimit: true,
             pageSize: 10,
           })
           ps.search(q, (status: string, result: any) => {
@@ -359,7 +405,7 @@ const MapPicker: React.FC<MapPickerProps> = ({ onLocationSelect, initialLocation
         </div>
       )}
       <div className="map-tip">
-        💡 可搜索名称定位，或点击地图选点，或使用左下角定位按钮
+        可搜索校内地点或点击湖南工业大学范围内的位置
       </div>
     </div>
   )

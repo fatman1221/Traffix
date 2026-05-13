@@ -3,7 +3,7 @@
   height: 100%;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
-  background: #f5f5f5;
+  background: #ffffff;
 }
 
 .my-messages-list {
@@ -25,7 +25,7 @@
 }
 
 .my-messages-item.my-messages-info {
-  border-left-color: #667eea;
+  border-left-color: var(--color-primary);
 }
 
 .my-messages-item.my-messages-success {
@@ -37,7 +37,7 @@
 }
 
 .my-messages-item.my-messages-unread {
-  background: rgba(102, 126, 234, 0.05);
+  background: rgba(0, 0, 0, 0.04);
   font-weight: 500;
 }
 

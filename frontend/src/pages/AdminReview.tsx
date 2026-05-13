@@ -133,7 +133,7 @@ const AdminReview: React.FC = () => {
   return (
     <div className="admin-review-container">
       <div className="review-header">
-        <h1>人工复核</h1>
+        <h1>事件复核中心</h1>
         <div className="review-count">
           共 {pagination.total} 条
         </div>
@@ -153,7 +153,7 @@ const AdminReview: React.FC = () => {
             setPagination(prev => ({ ...prev, page: 1 }))
           }}
         >
-          待审核
+          待复核
         </button>
         <button
           className={filterStatus === 'approved' ? 'active' : ''}

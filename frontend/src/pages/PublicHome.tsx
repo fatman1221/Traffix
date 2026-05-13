@@ -56,15 +56,16 @@ const PublicHome: React.FC = () => {
   }
 
   return (
-    <div className="public-home-container">
+    <div className={`public-home-container${activeTab === 'chat' ? ' public-home--chat-tab' : ''}`}>
       <div className="public-header">
-        <h1>交通事件感知系统</h1>
+        <h1>学校后勤事件平台</h1>
       </div>
 
       <div className="public-content">
         {activeTab === 'chat' && (
-          <div className="chat-container">
+          <div className="public-chat-wrap">
             <ChatInterface 
+              appBrandingTitle="学校后勤事件平台"
               notifications={notifications}
               onAddNotification={addNotification}
               onMarkNotificationsAsRead={markNotificationsAsRead}
@@ -96,13 +97,13 @@ const PublicHome: React.FC = () => {
           className={activeTab === 'chat' ? 'active' : ''}
           onClick={() => setActiveTab('chat')}
         >
-          智能问答
+          智能助手
         </button>
         <button
           className={activeTab === 'report' ? 'active' : ''}
           onClick={() => setActiveTab('report')}
         >
-          事件上报
+          校园上报
         </button>
       </div>
 

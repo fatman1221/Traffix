@@ -48,7 +48,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: linear-gradient(135deg, #667eea 0%, #5568d3 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
   color: white;
 }
 
@@ -89,11 +89,11 @@
   padding: 16px 20px;
   cursor: pointer;
   transition: background 0.2s;
-  border-bottom: 1px solid #f5f5f5;
+  border-bottom: 1px solid #eee;
 }
 
 .my-drawer-item:active {
-  background: #f5f5f5;
+  background: var(--color-primary-soft);
 }
 
 .my-drawer-item-content {

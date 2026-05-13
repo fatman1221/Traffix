@@ -1,0 +1,194 @@
+/* 管理后台 / 调度中心：按钮统一为主题主色渐变（与「创建 / 确定」一致），不修改 .logout-btn */
+
+.admin-home-container .admin-content .view-btn,
+.admin-home-container .admin-content .submit-btn,
+.admin-home-container .admin-content .create-user-btn,
+.admin-home-container .admin-content .btn-primary,
+.admin-home-container .admin-content .upload-btn,
+.admin-home-container .admin-content .save-btn,
+.dispatch-home-container .dispatch-content .view-btn,
+.dispatch-home-container .dispatch-content .submit-btn,
+.dispatch-home-container .dispatch-content .create-user-btn,
+.dispatch-home-container .dispatch-content .btn-primary,
+.dispatch-home-container .dispatch-content .upload-btn,
+.dispatch-home-container .dispatch-content .save-btn {
+  background: linear-gradient(
+    135deg,
+    var(--color-primary) 0%,
+    var(--color-primary-hover) 100%
+  );
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: filter 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+}
+
+.admin-home-container .admin-content .view-btn:hover:not(:disabled),
+.admin-home-container .admin-content .submit-btn:hover:not(:disabled),
+.admin-home-container .admin-content .create-user-btn:hover:not(:disabled),
+.admin-home-container .admin-content .btn-primary:hover:not(:disabled),
+.admin-home-container .admin-content .upload-btn:hover:not(:disabled),
+.admin-home-container .admin-content .save-btn:hover:not(:disabled),
+.dispatch-home-container .dispatch-content .view-btn:hover:not(:disabled),
+.dispatch-home-container .dispatch-content .submit-btn:hover:not(:disabled),
+.dispatch-home-container .dispatch-content .create-user-btn:hover:not(:disabled),
+.dispatch-home-container .dispatch-content .btn-primary:hover:not(:disabled),
+.dispatch-home-container .dispatch-content .upload-btn:hover:not(:disabled),
+.dispatch-home-container .dispatch-content .save-btn:hover:not(:disabled) {
+  color: #fff;
+  background: linear-gradient(
+    135deg,
+    var(--color-primary) 0%,
+    var(--color-primary-hover) 100%
+  );
+  filter: brightness(1.06);
+}
+
+.admin-home-container .admin-content .view-btn:disabled,
+.admin-home-container .admin-content .submit-btn:disabled,
+.admin-home-container .admin-content .create-user-btn:disabled,
+.admin-home-container .admin-content .btn-primary:disabled,
+.admin-home-container .admin-content .upload-btn:disabled,
+.admin-home-container .admin-content .save-btn:disabled,
+.dispatch-home-container .dispatch-content .view-btn:disabled,
+.dispatch-home-container .dispatch-content .submit-btn:disabled,
+.dispatch-home-container .dispatch-content .create-user-btn:disabled,
+.dispatch-home-container .dispatch-content .btn-primary:disabled,
+.dispatch-home-container .dispatch-content .upload-btn:disabled,
+.dispatch-home-container .dispatch-content .save-btn:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+  filter: none;
+}
+
+.admin-home-container .admin-sidebar .nav-item.active,
+.dispatch-home-container .dispatch-sidebar .nav-item.active {
+  filter: none;
+  box-shadow: none;
+}
+
+.admin-home-container .admin-content .view-btn.active,
+.admin-home-container .admin-content .submit-btn.active,
+.admin-home-container .admin-content .create-user-btn.active,
+.admin-home-container .admin-content .btn-primary.active,
+.admin-home-container .admin-content .upload-btn.active,
+.admin-home-container .admin-content .save-btn.active,
+.dispatch-home-container .dispatch-content .view-btn.active,
+.dispatch-home-container .dispatch-content .submit-btn.active,
+.dispatch-home-container .dispatch-content .create-user-btn.active,
+.dispatch-home-container .dispatch-content .btn-primary.active,
+.dispatch-home-container .dispatch-content .upload-btn.active,
+.dispatch-home-container .dispatch-content .save-btn.active {
+  filter: brightness(1.1);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.admin-home-container .admin-content,
+.dispatch-home-container .dispatch-content {
+  color: var(--color-text);
+}
+
+.admin-statistics-container,
+.admin-review-container,
+.admin-tickets-container,
+.admin-users-container,
+.admin-data-container {
+  padding: 28px;
+}
+
+.statistics-header,
+.review-header,
+.tickets-header,
+.users-header,
+.data-header {
+  margin-bottom: 22px;
+}
+
+.statistics-header h1,
+.review-header h1,
+.tickets-header h1,
+.users-header h1,
+.data-header h1 {
+  color: var(--color-text);
+  font-size: 26px;
+  font-weight: 750;
+  letter-spacing: 0;
+}
+
+.stat-card,
+.chart-card,
+.review-table-container,
+.tickets-table-container,
+.users-table,
+.users-footer,
+.pagination,
+.analytics-summary,
+.analytics-card,
+.data-grid,
+.data-detail {
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-soft);
+}
+
+.review-table thead,
+.tickets-table thead,
+.users-table thead {
+  background: var(--color-surface-soft);
+}
+
+.review-table th,
+.tickets-table th,
+.users-table th {
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+  font-weight: 650;
+}
+
+.review-table td,
+.tickets-table td,
+.users-table td {
+  border-bottom: 1px solid #eef2f7;
+  color: var(--color-text-muted);
+}
+
+.review-table tbody tr:hover,
+.tickets-table tbody tr:hover,
+.users-table tbody tr:hover {
+  background: #f8fbfc;
+}
+
+.review-filters,
+.tickets-filters,
+.users-filters,
+.data-filters,
+.data-main-tabs {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.review-filters button,
+.tickets-filters button,
+.users-filters button,
+.data-filters button,
+.data-main-tabs button,
+.page-btn,
+.clear-search-btn,
+.btn-muted,
+.action-btn {
+  border-color: var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text-muted);
+  box-shadow: none;
+}
+
+.review-filters button.active,
+.tickets-filters button.active,
+.users-filters button.active,
+.data-filters button.active,
+.data-main-tabs button.active {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-active);
+  border-color: var(--color-primary-muted);
+  box-shadow: none;
+}

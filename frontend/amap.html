@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>湖南工业大学边界取点工具</title>
+  <style>
+    html, body, #container {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "Microsoft YaHei", sans-serif;
+    }
+
+    #panel {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 999;
+      width: 420px;
+      max-width: calc(100vw - 20px);
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 12px;
+      box-sizing: border-box;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    #searchRow {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    #keyword {
+      flex: 1;
+      height: 34px;
+      padding: 0 10px;
+      box-sizing: border-box;
+      border: 1px solid #bbb;
+      border-radius: 4px;
+    }
+
+    button {
+      height: 34px;
+      padding: 0 12px;
+      border: 1px solid #999;
+      border-radius: 4px;
+      background: #f7f7f7;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #efefef;
+    }
+
+    #status {
+      margin: 8px 0;
+      color: #444;
+      font-size: 13px;
+      min-height: 20px;
+    }
+
+    #output {
+      width: 100%;
+      height: 220px;
+      box-sizing: border-box;
+      resize: vertical;
+      font-family: Consolas, "Courier New", monospace;
+      border: 1px solid #bbb;
+      border-radius: 4px;
+      padding: 8px;
+    }
+
+    #actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    #help {
+      margin-bottom: 8px;
+      color: #333;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div id="panel">
+    <div id="searchRow">
+      <input id="keyword" type="text" value="湖南工业大学" placeholder="请输入地点名称" />
+      <button id="searchBtn" type="button">搜索</button>
+    </div>
+
+    <div id="help">
+      1. 先搜索“湖南工业大学”<br />
+      2. 沿校区最外层边界依次点击取点<br />
+      3. 左下方会自动生成可直接复制使用的 <code>campusPath</code>
+    </div>
+
+    <div id="status"></div>
+    <textarea id="output" readonly></textarea>
+
+    <div id="actions">
+      <button id="copyBtn" type="button">复制坐标</button>
+      <button id="clearBtn" type="button">清空坐标</button>
+    </div>
+  </div>
+
+  <div id="container"></div>
+
+  <script type="module">
+    import AMapLoader from "/node_modules/@amap/amap-jsapi-loader/dist/index.js";
+
+    const apiKey = "%VITE_AMAP_API_KEY%".trim();
+    const securityJsCode = "%VITE_AMAP_SECURITY_JS_CODE%".trim();
+    const statusEl = document.getElementById("status");
+    const keywordInput = document.getElementById("keyword");
+    const output = document.getElementById("output");
+    const searchBtn = document.getElementById("searchBtn");
+    const copyBtn = document.getElementById("copyBtn");
+    const clearBtn = document.getElementById("clearBtn");
+
+    const points = [];
+    const markers = [];
+    let map = null;
+    let polygon = null;
+    let searchMarker = null;
+    let placeSearch = null;
+
+    function setStatus(text, isError = false) {
+      statusEl.textContent = text;
+      statusEl.style.color = isError ? "#b42318" : "#444";
+    }
+
+    function renderPoints() {
+      output.value =
+`const campusPath = [
+${points.map((p) => `  [${p[0]}, ${p[1]}]`).join(",\n")}
+];`;
+
+      if (!map) return;
+
+      if (polygon) {
+        map.remove(polygon);
+      }
+
+      if (points.length >= 3) {
+        polygon = new window.AMap.Polygon({
+          path: points,
+          strokeColor: "#000000",
+          strokeWeight: 2,
+          strokeOpacity: 1,
+          fillColor: "#cccccc",
+          fillOpacity: 0.35,
+        });
+        map.add(polygon);
+      }
+    }
+
+    function clearPoints() {
+      points.length = 0;
+      if (map && markers.length) {
+        map.remove(markers);
+      }
+      markers.length = 0;
+      if (polygon && map) {
+        map.remove(polygon);
+      }
+      polygon = null;
+      output.value = "const campusPath = [\n];";
+      setStatus("坐标已清空");
+    }
+
+    function addPoint(lnglat) {
+      const lng = Number(lnglat.lng.toFixed(6));
+      const lat = Number(lnglat.lat.toFixed(6));
+      points.push([lng, lat]);
+
+      const marker = new window.AMap.Marker({
+        position: [lng, lat],
+        label: {
+          content: String(points.length),
+          direction: "top",
+        },
+      });
+
+      markers.push(marker);
+      map.add(marker);
+      renderPoints();
+      setStatus(`已记录第 ${points.length} 个点：${lng}, ${lat}`);
+    }
+
+    function searchPlace() {
+      const keyword = keywordInput.value.trim();
+      if (!keyword) {
+        setStatus("请输入地点名称", true);
+        return;
+      }
+      if (!placeSearch || !map) {
+        setStatus("地图尚未加载完成，请稍后重试", true);
+        return;
+      }
+
+      setStatus(`正在搜索：${keyword}`);
+      placeSearch.search(keyword, (status, result) => {
+        if (status !== "complete" || !result.poiList || !result.poiList.pois.length) {
+          setStatus("未找到该地点，请换个关键词再试", true);
+          return;
+        }
+
+        const poi = result.poiList.pois[0];
+        const lnglat = poi.location;
+
+        map.setCenter(lnglat);
+        map.setZoom(17);
+
+        if (searchMarker) {
+          map.remove(searchMarker);
+        }
+
+        searchMarker = new window.AMap.Marker({
+          position: lnglat,
+          title: poi.name,
+        });
+
+        map.add(searchMarker);
+        setStatus(`已定位到：${poi.name}`);
+      });
+    }
+
+    async function init() {
+      if (!apiKey || apiKey.includes("VITE_AMAP_API_KEY")) {
+        setStatus("未读取到高德 Key，请检查 frontend/.env 中的 VITE_AMAP_API_KEY", true);
+        return;
+      }
+
+      if (securityJsCode && !window._AMapSecurityConfig) {
+        window._AMapSecurityConfig = { securityJsCode };
+      }
+
+      try {
+        await AMapLoader.load({
+          key: apiKey,
+          version: "2.0",
+          plugins: ["AMap.PlaceSearch"],
+        });
+
+        map = new window.AMap.Map("container", {
+          center: [113.1074, 27.8183],
+          zoom: 15,
+          viewMode: "2D",
+        });
+
+        placeSearch = new window.AMap.PlaceSearch({
+          pageSize: 5,
+          pageIndex: 1,
+          city: "株洲",
+        });
+
+        map.on("click", (e) => addPoint(e.lnglat));
+        renderPoints();
+        setStatus("地图已加载，可以开始搜索和取点");
+      } catch (error) {
+        console.error(error);
+        setStatus(
+          "高德地图加载失败，请检查 Key、SecurityJsCode 或本地访问地址是否与白名单一致",
+          true
+        );
+      }
+    }
+
+    searchBtn.addEventListener("click", searchPlace);
+    keywordInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        searchPlace();
+      }
+    });
+    clearBtn.addEventListener("click", clearPoints);
+    copyBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(output.value);
+        setStatus("坐标已复制到剪贴板");
+      } catch (error) {
+        setStatus("复制失败，请手动复制文本框内容", true);
+      }
+    });
+
+    output.value = "const campusPath = [\n];";
+    init();
+  </script>
+</body>
+</html>

@@ -11,12 +11,15 @@ interface ChatInterfaceProps {
   notifications: NotificationItem[]
   onAddNotification: (type: NotificationItem['type'], message: string) => void
   onMarkNotificationsAsRead: () => void
+  /** 嵌入公众端首页时传入平台名，顶栏仅显示该标题 */
+  appBrandingTitle?: string
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({
-  notifications,
+  notifications: _notifications,
   onAddNotification,
-  onMarkNotificationsAsRead
+  onMarkNotificationsAsRead: _onMarkNotificationsAsRead,
+  appBrandingTitle,
 }) => {
   const [messages, setMessages] = useState<Message[]>([])
   const [sessions, setSessions] = useState<ChatSession[]>([])
@@ -149,7 +152,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   return (
     <div className="chat-interface">
       <div className="chat-header">
-        <h1>Traffix 智能体</h1>
+        <div className="chat-header-title-wrap">
+          <h1 className="chat-header-agent">
+            {appBrandingTitle ?? '智能助手'}
+          </h1>
+        </div>
         <div className="chat-header-actions">
           <button 
             className="history-toggle"

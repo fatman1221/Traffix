@@ -4,6 +4,10 @@ import { logout } from '../api'
 import './AdminHome.css'
 
 const AdminHome: React.FC = () => {
+  const isMenuLink = (item: { type: 'divider' } | { path: string; label: string }): item is { path: string; label: string } => {
+    return 'path' in item
+  }
+
   const navigate = useNavigate()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -17,12 +21,14 @@ const AdminHome: React.FC = () => {
   const me = userStr ? JSON.parse(userStr) : {}
   const isAdmin = me?.role === 'admin'
 
-  const menuItems: Array<{ path?: string; label?: string; type?: string }> = [
-    { path: '/admin/statistics', label: '数据统计' },
-    { path: '/admin/review', label: '人工复核' },
-    { path: '/admin/tickets', label: '工单管理' },
+  const menuItems: Array<
+    { type: 'divider' } | { path: string; label: string }
+  > = [
+    { path: '/admin/statistics', label: '学校运营统计' },
+    { path: '/admin/review', label: '事件复核' },
+    { path: '/admin/tickets', label: '工单总览' },
     { type: 'divider' },
-    ...(isAdmin ? [{ path: '/admin/users', label: '用户管理' }] : []),
+    ...(isAdmin ? [{ path: '/admin/users', label: '账户管理' }] : []),
     { path: '/admin/data', label: '数据管理' },
   ]
 
@@ -34,7 +40,7 @@ const AdminHome: React.FC = () => {
     <div className="admin-home-container">
       <div className={`admin-sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
         <div className="sidebar-header">
-          <h2>Traffix 管理后台</h2>
+          <h2>学校运营管理后台</h2>
           <button 
             className="sidebar-toggle"
             onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -44,7 +50,7 @@ const AdminHome: React.FC = () => {
         </div>
         <nav className="sidebar-nav">
           {menuItems.map((item, index) => {
-            if (item.type === 'divider') {
+            if (!isMenuLink(item)) {
               return <div key={`divider-${index}`} className="nav-divider" />
             }
             return (

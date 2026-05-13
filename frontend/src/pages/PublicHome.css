@@ -1,8 +1,12 @@
 .public-home-container {
   min-height: 100vh;
+  min-height: 100dvh;
+  height: 100dvh;
+  max-height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: #f5f5f5;
+  background: #ffffff;
+  overflow: hidden;
 }
 
 .public-header {
@@ -21,6 +25,11 @@
   margin: 0;
   font-size: 18px;
   color: #333;
+}
+
+/* 智能助手 Tab：顶栏合并到 ChatInterface，隐藏重复白底标题 */
+.public-home--chat-tab .public-header {
+  display: none;
 }
 
 .logout-btn {
@@ -49,6 +58,7 @@
   right: 0;
   z-index: 100;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .public-tabs button {
@@ -71,33 +81,51 @@
 
 .public-content {
   flex: 1;
-  overflow: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 60px; /* 为底部标签栏留出空间 */
 }
 
-.chat-container,
-.report-container,
-.my-reports-wrapper {
-  height: 100%;
+.public-chat-wrap {
+  flex: 1;
+  min-height: 0;
   width: 100%;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.report-container,
+.my-reports-wrapper,
+.my-messages-wrapper {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .my-reports-wrapper,
 .my-messages-wrapper {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
+}
+
+/* 智能助手 Tab：浮动按钮略抬高，远离输入条与底栏（仍在右侧） */
+.public-home--chat-tab .my-float-button {
+  bottom: 152px;
 }
 
 /* 右下角浮动按钮 */
 .my-float-button {
   position: fixed;
   right: 20px;
-  bottom: 100px;
+  left: auto;
+  bottom: 128px;
   width: 56px;
   height: 56px;
   border-radius: 50%;
@@ -107,7 +135,7 @@
   font-size: 16px;
   font-weight: 500;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 99;
   display: flex;
   align-items: center;
@@ -117,7 +145,7 @@
 
 .my-float-button:active {
   transform: scale(0.95);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 /* 移动端适配 */
@@ -141,15 +169,20 @@
   }
 
   .public-content {
-    padding-bottom: 60px;
+    padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px));
   }
 
   .my-float-button {
     right: 16px;
-    bottom: 96px;
+    left: auto;
+    bottom: 118px;
     width: 52px;
     height: 52px;
     font-size: 15px;
+  }
+
+  .public-home--chat-tab .my-float-button {
+    bottom: 142px;
   }
 }
 

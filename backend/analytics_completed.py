@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""已结案工单统计分析（resolved / closed）。"""
+"""已结案工单统计分析（学校后勤场景）。"""
 from __future__ import annotations
 
 from collections import Counter
@@ -9,11 +9,11 @@ from sqlalchemy.orm import Session
 
 
 VIOLATION_KEYWORDS = {
-    "违停违法": ["违停", "违法停车", "乱停", "占道停车"],
-    "抛洒物风险": ["抛洒", "遗撒", "散落物", "落物"],
-    "交通事故": ["交通事故", "追尾", "碰撞", "剐蹭", "侧翻", "翻车"],
-    "道路设施损坏": ["道路损坏", "坑洞", "护栏损坏", "标志损坏", "路面破损"],
-    "拥堵缓行": ["拥堵", "缓行", "排队", "车流大"],
+    "停车秩序问题": ["违停", "乱停", "占道停车", "违规停车"],
+    "通行拥堵问题": ["拥堵", "缓行", "排队", "堵塞"],
+    "安全通道占用": ["消防通道", "生命通道", "通道占用"],
+    "交通设施异常": ["标志损坏", "道闸故障", "车位损坏", "停车设施"],
+    "校内事故风险": ["碰撞", "剐蹭", "追尾", "事故"],
 }
 
 
@@ -31,7 +31,7 @@ def _classify_violation(event_type: str, description: str) -> str:
 
 def _is_accident(event_type: str, description: str) -> bool:
     text = f"{event_type} {description}".lower()
-    accident_words = ["交通事故", "追尾", "碰撞", "剐蹭", "侧翻", "翻车", "事故"]
+    accident_words = ["碰撞", "剐蹭", "追尾", "事故", "人员受伤", "险情"]
     return any(w in text for w in accident_words)
 
 
@@ -53,7 +53,7 @@ def build_completed_tickets_analytics(db: Session) -> Dict[str, Any]:
             "accident_hotspots": [],
             "by_department": [],
             "suggestions": [
-                "当前尚无状态为「已解决」或「已关闭」的工单，结案积累后可在此查看违规类型分布、高发路段与处置建议。",
+                "当前尚无状态为「已解决」或「已关闭」的工单，结案积累后可在此查看校园交通问题分布、高发点位与处置建议。",
             ],
         }
 
@@ -69,7 +69,7 @@ def build_completed_tickets_analytics(db: Session) -> Dict[str, Any]:
         type_counter[et] += 1
         violation_counter[_classify_violation(et, desc)] += 1
         loc = _as_text(t.location)
-        loc_key = loc[:100] if loc else "未填写/未识别路段"
+        loc_key = loc[:100] if loc else "未填写/未识别校内位置"
         loc_counter[loc_key] += 1
         if _is_accident(et, desc):
             accident_loc_counter[loc_key] += 1
@@ -107,39 +107,39 @@ def build_completed_tickets_analytics(db: Session) -> Dict[str, Any]:
     top_type = by_type[0]
     suggestions.append(
         f"结案工单共 {total} 起。其中「{top_type['event_type']}」最多（{top_type['count']} 起，"
-        f"约占 {top_type['ratio'] * 100:.1f}%），建议将该类问题纳入重点巡查与宣传预案。"
+        f"约占 {top_type['ratio'] * 100:.1f}%），建议将该类问题纳入校内高峰时段重点巡查计划。"
     )
     if by_violation_category:
         top_violation = by_violation_category[0]
         suggestions.append(
             f"违规细分中「{top_violation['category']}」占比最高（{top_violation['count']} 起），"
-            "建议设置该类型专项执法时段，并建立闭环复盘台账。"
+            "建议设置该类型专项整治时段，并建立后勤闭环复盘台账。"
         )
 
     if len(by_location) >= 1 and by_location[0]["count"] >= 2:
         top_loc = by_location[0]
         suggestions.append(
-            f"路段「{top_loc['location'][:60]}{'…' if len(top_loc['location']) > 60 else ''}」"
-            f"相关结案 {top_loc['count']} 起，建议联合属地开展隐患排查、标志标线或设施维护。"
+            f"点位「{top_loc['location'][:60]}{'…' if len(top_loc['location']) > 60 else ''}」"
+            f"相关结案 {top_loc['count']} 起，建议联合保卫与后勤开展现场踏勘和设施优化。"
         )
     if accident_hotspots:
         top_accident_loc = accident_hotspots[0]
         suggestions.append(
-            f"事故高发路段「{top_accident_loc['location'][:60]}{'…' if len(top_accident_loc['location']) > 60 else ''}」"
-            f"累计 {top_accident_loc['count']} 起，建议重点开展测速管控、警示标识增设与夜间照明优化。"
+            f"事故风险高发点位「{top_accident_loc['location'][:60]}{'…' if len(top_accident_loc['location']) > 60 else ''}」"
+            f"累计 {top_accident_loc['count']} 起，建议强化导流提示、人员值守与夜间照明。"
         )
 
     unassigned = dept_counter.get("未指派部门", 0)
     if unassigned and unassigned / total > 0.3:
         suggestions.append(
             f"有 {unassigned} 起结案工单未记录指派部门（占比 {unassigned / total * 100:.0f}%），"
-            "建议调度员在结案前尽量完善「部门 / 处室」信息，便于绩效考核与复盘。"
+            "建议调度员在结案前完善「部门 / 班组」信息，便于绩效考核与运营复盘。"
         )
 
     if len(by_type) >= 2:
         second = by_type[1]
         suggestions.append(
-            f"次要高发类型为「{second['event_type']}」（{second['count']} 起），可针对性安排专项整治或联席会议。"
+            f"次要高发类型为「{second['event_type']}」（{second['count']} 起），可针对性安排校园交通专项治理。"
         )
 
     return {

@@ -33,7 +33,7 @@
 
 .search-input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--color-primary);
 }
 
 .clear-search-btn {
@@ -47,8 +47,8 @@
 }
 
 .clear-search-btn:hover {
-  border-color: #667eea;
-  color: #667eea;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .users-filters {
@@ -68,14 +68,14 @@
 }
 
 .users-filters button:hover {
-  border-color: #667eea;
-  color: #667eea;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .users-filters button.active {
-  background: linear-gradient(135deg, #667eea 0%, #5568d3 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
   color: white;
-  border-color: #667eea;
+  border-color: var(--color-primary);
 }
 
 .users-table {
@@ -92,7 +92,7 @@
 }
 
 .users-table thead {
-  background: #f5f5f5;
+  background: #ffffff;
   position: sticky;
   top: 0;
   z-index: 10;
@@ -111,7 +111,7 @@
   padding: 12px;
   font-size: 14px;
   color: #666;
-  border-bottom: 1px solid #f5f5f5;
+  border-bottom: 1px solid #eee;
 }
 
 .users-table tbody tr:hover {
@@ -142,7 +142,7 @@
 
 .create-user-btn {
   padding: 8px 16px;
-  background: linear-gradient(135deg, #667eea 0%, #5568d3 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
   color: white;
   border: none;
   border-radius: 4px;
@@ -217,10 +217,25 @@
 .btn-primary {
   padding: 8px 16px;
   border: none;
-  background: linear-gradient(135deg, #667eea 0%, #5568d3 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
   color: white;
   border-radius: 4px;
   cursor: pointer;
+}
+
+.success-dialog .success-dialog-text {
+  margin: 0 0 20px;
+  font-size: 16px;
+  color: #333;
+  text-align: center;
+}
+
+.success-dialog-actions {
+  justify-content: center;
+}
+
+.success-dialog-actions .btn-primary {
+  min-width: 120px;
 }
 
 .action-btn {
@@ -235,8 +250,8 @@
 }
 
 .action-btn:hover {
-  border-color: #667eea;
-  color: #667eea;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .action-btn.danger:hover {
